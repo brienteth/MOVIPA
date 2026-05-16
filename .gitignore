@@ -1,0 +1,141 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.venv11/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Environment variables (SENSITIVE)
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+KERNEL-PRODUCTION-DEPLOY.env*
+
+# Build outputs
+build/
+dist/
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# PM2
+.pm2/
+*.pid
+
+# Hardhat
+artifacts/
+cache/
+
+# Deployments (SENSITIVE - contract data)
+deployments/
+
+# Temporary files
+.tmp/
+temp/
+
+# SENSITIVE: Proprietary Backend Code
+backend/
+backend/.venv*
+backend/main_v2.py
+backend/strategy_compiler.py
+backend/*.py
+
+# SENSITIVE: Smart Contracts (internal)
+contracts/
+!contracts/README.md
+
+# SENSITIVE: Agent Kernel (proprietary logic)
+agent-kernel/
+
+# SENSITIVE: Private Keys & Credentials
+*.pem
+*.key
+*.priv
+secret*
+private*
+credentials.json
+.walletrc
+mnemonic*
+
+# SENSITIVE: Hardhat Config (contains network secrets)
+hardhat.config.js
+
+# SENSITIVE: Database
+*.db
+*.sqlite
+*.sqlite3
+
+# SENSITIVE: API Test Data & Debug Files
+data/
+debug_*.js
+trace_*.js
+fix_*.js
+decode_*.js
+print_*.js
+verify_*.js
+test_*.py
+test_*.js
+*.test.json
+trace_output.json
+bridge_test_results.json
+node_log.txt
+server_log.txt
+server.pid
+
+# React Native
+android/
+ios/
+.expo/
+android/app/build/
+
+# Build & Cache
+frontend/.next/
+frontend/out/
+.cache/
+
+# Server processes
+server.pid
+server_log.txt
+.pm2rc
+
+# Third-party configs (SENSITIVE)
+docker-compose.yml
+ecosystem.config.*
+pm2-ecosystem.config.js
+
+# Misc Files (Non-essential)
+BRAND.md
+WEB_CONTENT.md
+FLASH_LOAN_INTEGRATION.md
+DEPLOYMENT.md
+plan.md
+*.png
+*.jpg
+*.jpeg
+logomovipa.png
+

@@ -1,0 +1,16 @@
+{
+  "short_name": "Movipa",
+  "name": "Movipa - Agentic DeFi Hub",
+  "icons": [
+    {
+      "src": "movipa-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#000000"
+}

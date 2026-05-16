@@ -1,0 +1,48 @@
+{
+  "name": "bendle",
+  "version": "0.1.0",
+  "description": "Agentic DeFi Operating System - Furucombo meets Opacus on 0G Chain",
+  "main": "index.js",
+  "scripts": {
+    "dev": "./start-dev.sh",
+    "prod": "./start-prod.sh",
+    "test:setup": "./test-setup.sh",
+    "build": "cd frontend && npm run build",
+    "test": "cd frontend && npm test",
+    "lint": "cd frontend && npm run lint",
+    "backend:start": "cd backend && uvicorn main_v2:app --host 127.0.0.1 --port 8001",
+    "frontend:start": "cd frontend && npm start",
+    "deploy:contracts": "npx hardhat run scripts/deploy.js --network localhost",
+    "deploy:contracts:testnet": "npx hardhat run scripts/deploy.js --network 0g-testnet",
+    "clean": "rm -rf frontend/build backend/venv .pm2 *.pid"
+  },
+  "keywords": [
+    "defi",
+    "agentic",
+    "0g-chain",
+    "http3",
+    "opacus",
+    "furucombo"
+  ],
+  "author": "Bendle Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bendle-defi/bendle.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bendle-defi/bendle/issues"
+  },
+  "homepage": "https://bendle.app",
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.6.1"
+  }
+}

@@ -1,0 +1,47 @@
+MOVIPA - Proprietary License
+
+Copyright © 2026. All rights reserved.
+
+TERMS AND CONDITIONS
+
+1. GRANT OF LICENSE
+This project is proprietary software. You may view and run the code for educational and evaluation purposes only.
+
+2. RESTRICTIONS
+You may not:
+- Modify, distribute, or transmit the code
+- Reverse engineer or decompile the software
+- Use the code for commercial purposes
+- Sublicense the software
+- Use this code as a basis for competitive products
+
+3. PERMITTED USE
+You are permitted to:
+- Run the application for personal use
+- Review the code for learning purposes
+- Report security vulnerabilities to the maintainers
+- Submit bug reports through official channels
+
+4. INTELLECTUAL PROPERTY
+All intellectual property rights, including patents, copyrights, and trade secrets, are retained by the copyright holder.
+
+5. DISCLAIMER
+THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
+The copyright holder is not liable for any damages arising from use of this software.
+
+6. TERMINATION
+This license may be terminated at any time by the copyright holder.
+
+For commercial licensing inquiries, please contact the maintainers.
+
+---
+
+THIRD-PARTY LICENSES
+
+This project includes components with the following licenses:
+- React: MIT License
+- Tailwind CSS: MIT License
+- Wagmi: MIT License
+- Ethers.js: MIT License
+
+See individual packages in package.json for their respective licenses.
