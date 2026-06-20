@@ -918,7 +918,7 @@ const compiled = (await api.compileStrategy(
       
       // Prevent BAD_DATA error by checking if we're on the right chain
       const network = await provider.getNetwork();
-      if (network.chainId !== 8453n) {
+      if (network.chainId !== BigInt(8453)) {
         try {
           // Request MetaMask to switch networks
           await (window as any).ethereum.request({
@@ -954,7 +954,7 @@ const compiled = (await api.compileStrategy(
         // Wait briefly for MetaMask to apply the network switch
         await new Promise(r => setTimeout(r, 1500));
         const updatedNetwork = await provider.getNetwork();
-        if (updatedNetwork.chainId !== 8453n) {
+        if (updatedNetwork.chainId !== BigInt(8453)) {
           setTxError('Network switch failed. Please change MetaMask network to Base manually.');
           return;
         }
