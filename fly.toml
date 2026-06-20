@@ -1,0 +1,39 @@
+# fly.toml for Bendle FastAPI Backend
+# Deploy: cd backend && fly launch --no-deploy --name brick3-backend
+#         fly secrets set OPENAI_API_KEY="..." OPACUS_API_KEY="..."
+#         fly deploy
+
+app = "brick3-backend"
+primary_region = "ord"   # Chicago
+
+[build]
+  context = "."
+  dockerfile = "./backend/Dockerfile"
+
+[env]
+  PYTHONUNBUFFERED = "1"
+  PORT = "8001"
+
+[[services]]
+  protocol    = "tcp"
+  internal_port = 8001
+
+  [[services.ports]]
+    port     = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port     = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type       = "connections"
+    hard_limit = 200
+    soft_limit = 100
+
+  [[services.http_checks]]
+    interval = "15s"
+    timeout  = "5s"
+    grace_period = "20s"
+    method   = "GET"
+    path     = "/api/v1/health"

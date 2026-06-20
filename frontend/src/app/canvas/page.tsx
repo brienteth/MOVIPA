@@ -93,21 +93,21 @@ const MODULE_SUPPORT_BY_CHAIN: Record<string, Array<CanvasBlock['type']>> = {
   '0G': ['SWAP', 'BRIDGE', 'CLAIM', 'CONDITION', 'LOOP'],
 };
 
-// Token address mapping for Sepolia testnet
+// Token address mapping for Base Mainnet
 const TOKEN_ADDRESSES: Record<string, string> = {
-  'USDC': '0x94a9D9Ac8a22534E3FAcA9f88AbF5D1Da0C4dEf8', // AAVE Mock USDC (Sepolia)
-  'USDT': '0xF4dB845EdF52B65E4f1B69B51E013Cf67FB552E5', // AAVE Mock USDT (Sepolia)
-  'DAI': '0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357',  // AAVE Mock DAI (Sepolia)
-  'ETH': '0x0000000000000000000000000000000000000000', // Native ETH
-  'WETH': '0x88541670e55cC00beefD87eB59edd1b91c4f3e60', // AAVE Mock (Using AAVE for this)
-  'WBTC': '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599', // Kept generic mainnet wbtc for now
-  'ftUSD': '0x7bb700f9f3d2db8df6e235ce144f6b001a1d1ed5', // Flying Tulip ftUSD (Simulated Sepolia)
+  'USDC': '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC Base
+  'USDT': '0x0000000000000000000000000000000000000000', // Unused
+  'DAI': '0x0000000000000000000000000000000000000000',  // Unused
+  'ETH': '0x0000000000000000000000000000000000000000',
+  'WETH': '0x4200000000000000000000000000000000000006', // WETH Base
+  'WBTC': '0x0000000000000000000000000000000000000000', // Unused
+  'ftUSD': '0x7bb700f9f3d2db8df6e235ce144f6b001a1d1ed5', // Flying Tulip ftUSD
 };
 
 export default function CanvasPage() {
   const { address, isConnected } = useAccount();
   const { toast } = useToast();
-  const [selectedChain, setSelectedChain] = useState<string>('Ethereum');
+  const [selectedChain, setSelectedChain] = useState<string>('Base');
   const [blocks, setBlocks] = useState<CanvasBlock[]>([]);
   const [dragging, setDragging] = useState<BlockType | null>(null);
 
@@ -695,7 +695,7 @@ export default function CanvasPage() {
   const displayConfidence = simResult
     ? Math.round((1 - simResult.failureProbability) * 100)
     : Math.min(95, 18 + blocks.length * 9);
-  const displayNetworkRoute = simResult?.networkRoute || 'Private Route · Sepolia';
+  const displayNetworkRoute = simResult?.networkRoute || 'Private Route · Base';
   const displayExecutionRegion = simResult?.executionRegion || '';
 
   const simulate = async () => {
@@ -918,45 +918,44 @@ const compiled = (await api.compileStrategy(
       
       // Prevent BAD_DATA error by checking if we're on the right chain
       const network = await provider.getNetwork();
-      if (network.chainId !== BigInt(BRICK3_CHAIN.id)) {
+      if (network.chainId !== 8453n) {
         try {
           // Request MetaMask to switch networks
           await (window as any).ethereum.request({
             method: 'wallet_switchEthereumChain',
-            params: [{ chainId: `0x${BRICK3_CHAIN.id.toString(16)}` }],
+            params: [{ chainId: '0x2105' }], // 8453 in hex
           });
-          await new Promise((resolve) => setTimeout(resolve, 1000)); // wait for network change
         } catch (switchError: any) {
-          // If the network is not added (error code 4902), add it
+          // This error code indicates that the chain has not been added to MetaMask.
           if (switchError.code === 4902) {
             try {
               await (window as any).ethereum.request({
                 method: 'wallet_addEthereumChain',
                 params: [
                   {
-                    chainId: `0x${BRICK3_CHAIN.id.toString(16)}`,
-                    chainName: 'Sepolia',
-                    nativeCurrency: { name: 'Sepolia ETH', symbol: 'ETH', decimals: 18 },
-                    rpcUrls: ['https://rpc.sepolia.org'],
-                    blockExplorerUrls: ['https://sepolia.etherscan.io'],
+                    chainId: '0x2105',
+                    chainName: 'Base Mainnet',
+                    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+                    rpcUrls: ['https://mainnet.base.org'],
+                    blockExplorerUrls: ['https://basescan.org'],
                   },
                 ],
               });
-              await new Promise((resolve) => setTimeout(resolve, 1000));
             } catch (addError) {
-              setTxError('Could not add Sepolia network. Please add it manually.');
+              setTxError('Could not add Base network. Please add it manually.');
               return;
             }
           } else {
-            setTxError('You rejected the network switch. Please switch to Sepolia to continue.');
+            setTxError('You rejected the network switch. Please switch to Base to continue.');
             return;
           }
         }
         
-        // Re-check after attempting switch
-        const newNetwork = await provider.getNetwork();
-        if (newNetwork.chainId !== BigInt(BRICK3_CHAIN.id)) {
-          setTxError('Network switch failed. Please change MetaMask network to Sepolia manually.');
+        // Wait briefly for MetaMask to apply the network switch
+        await new Promise(r => setTimeout(r, 1500));
+        const updatedNetwork = await provider.getNetwork();
+        if (updatedNetwork.chainId !== 8453n) {
+          setTxError('Network switch failed. Please change MetaMask network to Base manually.');
           return;
         }
       }
@@ -1022,7 +1021,7 @@ const compiled = (await api.compileStrategy(
       console.error('🧨 executeStrategy failed:', err);
       const errString = err.reason || err.message || String(err);
       if (errString.includes("execution reverted") || errString.includes("CALL_EXCEPTION")) {
-         setTxError("Testnet Execution Reverted: This is expected on Sepolia! Testnet AMM pools lack real arbitrage liquidity, causing the flash loan repayment to fail. However, this proves your strategy successfully reached Aave & Uniswap on-chain.");
+         setTxError("Execution Reverted: The on-chain execution failed.");
       } else {
          setTxError(`Execute failed: ${errString.slice(0, 200)}...`);
       }
@@ -1093,7 +1092,9 @@ const compiled = (await api.compileStrategy(
                 className="rounded-lg border border-white/10 bg-[#0E121A] px-2 py-1.5 text-xs text-white outline-none"
               >
                 {NETWORK_OPTIONS.map((n) => (
-                  <option key={n} value={n}>{n}</option>
+                  <option key={n} value={n} disabled={n !== 'Base'}>
+                    {n !== 'Base' ? `${n} (Coming Soon)` : n}
+                  </option>
                 ))}
               </select>
             </div>
@@ -1217,11 +1218,11 @@ const compiled = (await api.compileStrategy(
                 <div className="text-center space-y-2">
                   <div className="text-4xl">✓</div>
                   <h3 className="text-xl font-semibold text-white">Execution Confirmed</h3>
-                  <p className="text-white/55 text-sm">Your strategy executed successfully on Sepolia.</p>
+                  <p className="text-white/55 text-sm">Your strategy executed successfully on Base.</p>
                 </div>
                 {writeTxData?.hash && (
                   <a
-                    href={`https://sepolia.etherscan.io/tx/${writeTxData.hash}`}
+                    href={`https://basescan.org/tx/${writeTxData.hash}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block text-center text-sm text-[#00e5ff] hover:underline"
@@ -1240,7 +1241,7 @@ const compiled = (await api.compileStrategy(
               <>
                 <div>
                   <h3 className="text-xl font-semibold text-white">Confirm Execution</h3>
-                  <p className="text-white/45 text-sm mt-1">Review before submitting to Sepolia.</p>
+                  <p className="text-white/45 text-sm mt-1">Review before submitting to Base.</p>
                 </div>
 
                 <div className="space-y-2.5 text-sm bg-white/[0.03] rounded-xl p-4">
@@ -1300,7 +1301,7 @@ const compiled = (await api.compileStrategy(
                     Waiting for confirmation…
                     {writeTxData?.hash && (
                       <a
-                        href={`https://sepolia.etherscan.io/tx/${writeTxData.hash}`}
+                        href={`https://basescan.org/tx/${writeTxData.hash}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-[#00e5ff] text-xs"
