@@ -1,4 +1,4 @@
-# MOVIPA - Multi-Chain DeFi Strategy Builder
+# Brick3 - Multi-Chain DeFi Strategy Builder
 
 **Intuitive visual interface for composing complex DeFi strategies across multiple blockchain networks.**
 
@@ -52,7 +52,7 @@
 
 ### For Users
 
-1. **Visit the App**: Open the MOVIPA interface in your browser
+1. **Visit the App**: Open the Brick3 interface in your browser
 2. **Connect Wallet**: Click "Sign In" and approve connection
 3. **Build Strategy**: Use the Canvas to compose your strategy
 4. **Execute**: Review gas costs and execute
@@ -122,7 +122,7 @@ Monitor Position → Check Health Factor → If Trigger → Execute Swap → Liq
 
 ## ⚠️ Important Disclaimers
 
-**MOVIPA is provided "as-is" for educational and experimental purposes.**
+**Brick3 is provided "as-is" for educational and experimental purposes.**
 
 - **Not Financial Advice**: This tool is for learning and experimentation
 - **Use At Your Own Risk**: Users are responsible for:
@@ -144,7 +144,7 @@ Monitor Position → Check Health Factor → If Trigger → Execute Swap → Liq
 
 ## 🐛 Bug Reports
 
-Found a bug? Please report it on [GitHub Issues](https://github.com/heldereth/MOVIPA/issues)
+Found a bug? Please report it on [GitHub Issues](https://github.com/heldereth/brick3/issues)
 
 ## 💬 Contributing
 

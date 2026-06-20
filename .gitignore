@@ -21,8 +21,7 @@ pip-delete-this-directory.txt
 .env.production.local
 KERNEL-PRODUCTION-DEPLOY.env*
 
-# Build outputs
-build/
+# Build outputs (but NOT frontend/build which is production code)
 dist/
 *.tsbuildinfo
 
@@ -139,3 +138,4 @@ plan.md
 *.jpeg
 logomovipa.png
 
+.vercel

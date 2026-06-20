@@ -30,6 +30,10 @@ interface CanvasBlock {
 
 interface SimResult {
   netProfitUsd: number;
+  netProfit?: number;
+  profitToken?: string;
+  notionalAmount?: number;
+  notionalToken?: string;
   gasCostEth: number;
   profitable: boolean;
   failureProbability: number;
