@@ -6,7 +6,7 @@ import ReactFlow, { Background, Controls, NodeChange, BackgroundVariant } from '
 import 'reactflow/dist/style.css';
 import ModuleNode from '../../components/canvas/ModuleNode';
 import { api } from '../../lib/api';
-import { BRICK3_CONTRACTS, BRICK3_CHAIN, bandleRouterAbi, strategyRegistryAbi } from '../../lib/contracts';
+import { BRICK3_CONTRACTS, bandleRouterAbi, strategyRegistryAbi } from '../../lib/contracts';
 import { useToast } from '../../hooks/use-toast';
 
 type BlockType = 'FLASH LOAN' | 'SWAP' | 'BRIDGE' | 'LEND' | 'BORROW' | 'STAKE' | 'YIELD' | 'CLAIM' | 'CONDITION' | 'LOOP' | 'FT DEPOSIT' | 'FT USD MINT' | 'FT SWAP';
