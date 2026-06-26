@@ -5,4 +5,10 @@ export interface SimulationResult {
   estimatedGasUsd?: number;
   netProfitUsd?: number;
   profitable?: boolean;
+  estimatedGas?: number;
+  gasCostEth?: number;
+  gasCostUsd?: number;
+  failureProbability?: number;
+  failingNode?: string | null;
+  revertReason?: string | null;
 }

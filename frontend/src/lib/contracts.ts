@@ -6,7 +6,7 @@ export const BRICK3_CHAIN = {
 
 export const BRICK3_CONTRACTS = {
   PermissionManager: '0x618A13a1dE79cde892a1cA5B3FC24D4AA66b718D',
-  TreasuryManager: '0x4Cd07043D8411A29DCe3fAFa1Aa89E67D74c184B',
+  TreasuryManager: '0x6aa9645bc2083D623134D50bd86a2B354e8Bb1D3',
   ProfitManager: '0x6e44B6d48AFe3123C9906E9959f1C7C5A21f5e80',
   ConditionManager: '0x5E9714A6D073B4F53C40f636421aE95226753AF1',
   AaveFlashAdapter: '0x0f840e0DeA1c11b2aB35A8f18A3ab4ac47cF5262',
@@ -21,8 +21,8 @@ export const BRICK3_CONTRACTS = {
   IntentSettlement: '0xC8a378BD783aDFD0D745CbC76341c5DB97cF9B55',
   ERC7756QuicTransport: '0x463D733832cBD497C29a0521ad3030a19f64f712',
   CrossChainIntentInbox: '0x3315f6233351f20Aa333d92a5f1b3B255471EB08',
-  StrategyExecutorKernel: '0x18C1d2974D512bEbE2b3bE36375B62f5eb1C38E2',
-  BandleRouter: '0x09Bee01F41D36B40e4eB86c4557D1f572949d516',
+  StrategyExecutorKernel: '0x40021c19a16d2Ca7640D0B93A487023F9f6250B2',
+  BandleRouter: '0x2266Fed2f61508dA465AdaF98c194A5b3DEcc074',
   MockLendingAdapter: '0x5fEBfb9096f4EE02FEdc7eBB9CCF8061D95143Ee',
   AaveV3LendingAdapter: '0x4a4AbC511067Ba3fD9FA32875D19B8b96Ff45eA5',
   CanvasFlashLoanBlock: '0x0000000000000000000000000000000000000000',
@@ -84,7 +84,7 @@ export const BRICK3_CONTRACTS_BY_CHAIN: Record<number, Brick3Contracts> = {
   // Base Mainnet (8453)
   8453: {
     PermissionManager: "0x618A13a1dE79cde892a1cA5B3FC24D4AA66b718D",
-    TreasuryManager: "0x4Cd07043D8411A29DCe3fAFa1Aa89E67D74c184B",
+    TreasuryManager: "0x6aa9645bc2083D623134D50bd86a2B354e8Bb1D3",
     ProfitManager: "0x6e44B6d48AFe3123C9906E9959f1C7C5A21f5e80",
     ConditionManager: "0x5E9714A6D073B4F53C40f636421aE95226753AF1",
     AaveFlashAdapter: "0x0f840e0DeA1c11b2aB35A8f18A3ab4ac47cF5262",
@@ -100,8 +100,8 @@ export const BRICK3_CONTRACTS_BY_CHAIN: Record<number, Brick3Contracts> = {
     IntentSettlement: "0xC8a378BD783aDFD0D745CbC76341c5DB97cF9B55",
     ERC7756QuicTransport: "0x463D733832cBD497C29a0521ad3030a19f64f712",
     CrossChainIntentInbox: "0x3315f6233351f20Aa333d92a5f1b3B255471EB08",
-    StrategyExecutorKernel: "0x18C1d2974D512bEbE2b3bE36375B62f5eb1C38E2",
-    BandleRouter: "0x09Bee01F41D36B40e4eB86c4557D1f572949d516",
+    StrategyExecutorKernel: "0x40021c19a16d2Ca7640D0B93A487023F9f6250B2",
+    BandleRouter: "0x2266Fed2f61508dA465AdaF98c194A5b3DEcc074",
     MockLendingAdapter: "0x5fEBfb9096f4EE02FEdc7eBB9CCF8061D95143Ee",
     CanvasFlashLoanBlock: "0x0000000000000000000000000000000000000000",
     AaveV3FlashAdapter: "0x0000000000000000000000000000000000000000",
@@ -120,7 +120,7 @@ export const BRICK3_CONTRACTS_BY_CHAIN: Record<number, Brick3Contracts> = {
   // Sonic Mainnet (146)
   146: {
     PermissionManager: "0x612b1D28bD19AD4d9738F152836538BF239d256a",
-    TreasuryManager: "0xac81f7Dd07aE1D18238796BC3bA7a84d6cDD2050",
+    TreasuryManager: "0x9b9F98F769A28dE7DA277A1257977895aab501dd",
     ProfitManager: "0x14d8aAb378316549E870BB03497B3A0592Ad5aA5",
     ConditionManager: "0xcc90033c767Be97228dBec26b215F5b86e332933",
     AaveFlashAdapter: "0x78A326Cb86512Be28CBCcFD4FEe2995d21d770Fd",
@@ -136,8 +136,8 @@ export const BRICK3_CONTRACTS_BY_CHAIN: Record<number, Brick3Contracts> = {
     IntentSettlement: "0x67D445f5bAE4754345de4C56647699518F42EA7C",
     ERC7756QuicTransport: "0xA720561A37022f5021AF460bE96006F0D7A0e359",
     CrossChainIntentInbox: "0xFA2F7d335C73e64B056B5a3dc0A145d4522DA872",
-    StrategyExecutorKernel: "0xeb68Fa76F60B50F3e99E481b80374e26Ab85441A",
-    BandleRouter: "0x4b279700A9E95De4798a8C7473aaE2432c73dc1F",
+    StrategyExecutorKernel: "0x020a7cA6133f4E6f89b4D32865Dc0C9DD6086756",
+    BandleRouter: "0xaee02D25feC9110Dda511631513dce51B1929A91",
     MockLendingAdapter: "0xfE82C447300F39178938c410A6f621C3207aAc18",
     CanvasFlashLoanBlock: "0x0000000000000000000000000000000000000000",
     AaveV3FlashAdapter: "0x0000000000000000000000000000000000000000",
@@ -232,6 +232,7 @@ export const bandleRouterAbi = [
       { internalType: 'uint256', name: 'minProfitWei', type: 'uint256' },
       { internalType: 'uint256', name: 'deadline', type: 'uint256' },
       { internalType: 'bytes32', name: 'strategyHash', type: 'bytes32' },
+      { internalType: 'address[]', name: 'sweepTokens', type: 'address[]' },
     ],
     outputs: [
       { internalType: 'int256', name: 'netProfitWei', type: 'int256' },

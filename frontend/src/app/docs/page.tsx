@@ -111,6 +111,56 @@ const docsData: Section[] = [
         )
       },
       {
+        id: 'smart-automation',
+        title: 'Capital Protection & Marketplace',
+        content: (
+          <div className="space-y-6">
+            <h2 className="text-3xl font-bold text-white">Intuitive Automation & Capital Safety</h2>
+            <p className="text-white/70 leading-relaxed">
+              We design workflows to make decentralized finance both user-friendly and highly secure. 
+              Here is how our latest canvas features and simulation rules protect and optimize your investments:
+            </p>
+            <div className="space-y-4">
+              <div className="bg-[#151821] border border-white/10 p-6 rounded-2xl">
+                <h3 className="text-white font-semibold mb-2">1. Automated Loan Corridors (Auto-Bracketing)</h3>
+                <p className="text-white/60 text-sm leading-relaxed">
+                  When you initiate a strategy with a Flash Loan, the canvas automatically appends a Repayment step at the end. 
+                  Any additional actions you insert are kept safe inside this loan corridor. This structure prevents critical loan-payment 
+                  errors on the blockchain and automatically arranges steps chronologically.
+                </p>
+              </div>
+
+              <div className="bg-[#151821] border border-white/10 p-6 rounded-2xl">
+                <h3 className="text-white font-semibold mb-2">2. Connected Step Outputs (Dynamic Piping)</h3>
+                <p className="text-white/60 text-sm leading-relaxed">
+                  Instead of calculating and typing static token amounts manually, you can set steps to automatically use the outputs 
+                  of previous actions. This ensures that assets flow seamlessly between steps, maximizing capital utilization 
+                  without manual math.
+                </p>
+              </div>
+
+              <div className="bg-[#151821] border border-white/10 p-6 rounded-2xl">
+                <h3 className="text-white font-semibold mb-2">3. Accurate Fee Calculations & Warnings</h3>
+                <p className="text-white/60 text-sm leading-relaxed">
+                  Our simulation sandbox factors in Aave's 0.09% protocol fee for flash loans directly in the net profit estimation. 
+                  If a simulation fails, the engine converts raw technical errors into clear diagnostic solutions. Most importantly, 
+                  failed simulations never hit the main network, guaranteeing that your capital remains completely safe.
+                </p>
+              </div>
+
+              <div className="bg-[#151821] border border-white/10 p-6 rounded-2xl">
+                <h3 className="text-white font-semibold mb-2">4. Opacus Strategy Marketplace</h3>
+                <p className="text-white/60 text-sm leading-relaxed">
+                  Once your strategy compiles and simulates successfully, you can share or deploy it as an autonomous agent in the 
+                  Opacus Marketplace. Other users can discover, copy, or rent your strategies, enabling collaborative capital 
+                  generation across the community.
+                </p>
+              </div>
+            </div>
+          </div>
+        )
+      },
+      {
         id: 'simulation-engine',
         title: 'Simulation & Risk Engine',
         content: (
@@ -368,6 +418,41 @@ const docsData: Section[] = [
               <h4 className="text-white font-semibold mb-2">Key Advantage</h4>
               <p className="text-white/70 text-sm">
                 Combining Flying Tulip's Cross-Margin capabilities with Brick3 workflows eliminates protocol hopping and reduces strategy gas costs by executing all credit/margin operations within the same state environment.
+              </p>
+            </div>
+          </div>
+        )
+      },
+      {
+        id: 'opacus-integration',
+        title: 'Opacus Intents (ERC-7752 / ERC-7753)',
+        content: (
+          <div className="space-y-6">
+            <h2 className="text-3xl font-bold text-white">Opacus Intent Network & Cross-Chain Escrows</h2>
+            <p className="text-white/70 leading-relaxed">
+              Brick3 goes beyond single-chain execution by natively supporting the <strong>Opacus Intent Protocol</strong>. We leverage new ERC standards to enable complex cross-chain atomic operations like multi-chain flash loans.
+            </p>
+            <div className="bg-[#151821] border border-white/10 p-6 rounded-2xl mt-6">
+              <h3 className="text-white font-semibold mb-4">Core ERC Standards</h3>
+              <div className="space-y-4">
+                <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                  <h4 className="text-blue-400 font-semibold mb-2">ERC-7752: Bridge Intent</h4>
+                  <p className="text-white/70 text-sm">
+                    Instead of interacting directly with bridge contracts, the BRIDGE block compiles into an intent payload. The Opacus network solver agents bid to execute the bridge transfer at the lowest cost and fastest time, with automatic retries on failure.
+                  </p>
+                </div>
+                <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                  <h4 className="text-purple-400 font-semibold mb-2">ERC-7753: Flash Loan Escrow</h4>
+                  <p className="text-white/70 text-sm">
+                    The holy grail of DeFi composability. By combining FLASH LOAN and BRIDGE blocks, Brick3 locks the borrowed capital into an ERC-7753 escrow. Once the cross-chain solver provides an on-chain proof of execution on the destination chain, the escrow is released to repay the loan automatically. If the solver fails, the escrow refunds the flash loan entirely, ensuring zero user risk.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-red-900/10 border border-red-500/30 p-6 rounded-2xl mt-6">
+              <h4 className="text-white font-semibold mb-2">What this unlocks</h4>
+              <p className="text-white/70 text-sm">
+                You can now borrow assets on Ethereum, execute a high-yield strategy on Sonic, and settle the position automatically. This makes cross-chain carry trades and delta-neutral hedging fully trustless.
               </p>
             </div>
           </div>

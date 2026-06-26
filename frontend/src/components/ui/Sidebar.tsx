@@ -4,7 +4,7 @@ import { AppView } from '../../store/ui.store';
 const mainItems: Array<{ key: AppView; label: string }> = [
   { key: 'canvas', label: 'Canvas' },
   { key: 'monitor', label: 'Monitor' },
-  { key: 'strategies', label: 'Strategies' },
+  { key: 'strategies', label: 'Marketplace' },
   { key: 'vaults', label: 'Vaults' },
   { key: 'portfolio', label: 'Portfolio (P&L)' },
 ];

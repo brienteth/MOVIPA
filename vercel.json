@@ -7,20 +7,16 @@
       "config": {
         "distDir": "build"
       }
-    },
-    {
-      "src": "backend/api/index.py",
-      "use": "@vercel/python"
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/backend/api/index.py"
+      "source": "/(.*\\.[a-zA-Z0-9]+)$",
+      "destination": "/frontend/$1"
     },
     {
-      "src": "/(.*)",
-      "dest": "/frontend/$1"
+      "source": "/(.*)",
+      "destination": "/frontend/index.html"
     }
   ]
 }

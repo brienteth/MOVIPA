@@ -276,8 +276,8 @@ export default function StrategiesPage() {
   return (
     <div className="h-full overflow-y-auto p-6 bg-[#0A0505] space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold text-white tracking-tight">Strategies</h2>
-        <p className="text-sm text-white/60 mt-1">Template marketplace and AI-assisted generation</p>
+        <h2 className="text-2xl font-semibold text-white tracking-tight">Opacus Marketplace</h2>
+        <p className="text-sm text-white/60 mt-1">Opacus Agent and Strategy Marketplace</p>
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-white/5 p-4">

@@ -91,7 +91,15 @@ export const api = {
     };
     relay_preference?: string;
   }) => request(`/api/v2/intents/solve/${intentId}`, { method: 'POST', body: JSON.stringify(payload) }),
-  simulateStrategy: (payload: { nodes: Array<{ type: string; params: Record<string, unknown> }>; gas_price_gwei?: number; eth_price_usd?: number; slippage_bps?: number; gas_priority?: string }) =>
+  simulateStrategy: (payload: {
+    nodes: Array<{ type: string; params: Record<string, unknown>; order?: number }>;
+    gas_price_gwei?: number;
+    eth_price_usd?: number;
+    slippage_bps?: number;
+    gas_priority?: string;
+    user_address?: string;
+    target_chain_id?: number;
+  }) =>
     request('/api/v2/strategy/simulate', { method: 'POST', body: JSON.stringify(payload) }),
   compileStrategy: (payload: { nodes: Array<{ type: string; params: Record<string, unknown> }>; slippage_bps?: number; gas_priority?: string }, opts?: { timeout?: number }) =>
     request('/api/v2/strategy/compile', { method: 'POST', body: JSON.stringify(payload), timeout: opts?.timeout }),

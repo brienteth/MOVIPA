@@ -3,7 +3,26 @@ import { mainnet, sepolia, base, arbitrum, optimism, polygon } from 'wagmi/chain
 import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
 import { InjectedConnector } from 'wagmi/connectors/injected';
 
-const chains = [mainnet, sepolia, base, arbitrum, optimism, polygon];
+const sonic = {
+  id: 146,
+  name: 'Sonic',
+  network: 'sonic',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Sonic',
+    symbol: 'S',
+  },
+  rpcUrls: {
+    public: { http: ['https://rpc.soniclabs.com'] },
+    default: { http: ['https://rpc.soniclabs.com'] },
+  },
+  blockExplorers: {
+    etherscan: { name: 'SonicScan', url: 'https://sonicscan.org' },
+    default: { name: 'SonicScan', url: 'https://sonicscan.org' },
+  },
+} as const;
+
+const chains = [mainnet, sepolia, base, arbitrum, optimism, polygon, sonic];
 
 const { publicClient, webSocketPublicClient } = configureChains(chains, [
   jsonRpcProvider({
@@ -22,6 +41,8 @@ const { publicClient, webSocketPublicClient } = configureChains(chains, [
             return 'https://optimism.publicnode.com';
           case 137: // Polygon
             return 'https://polygon.publicnode.com';
+          case 146: // Sonic
+            return 'https://rpc.soniclabs.com';
           default:
             return chain.rpcUrls.default.http[0];
         }

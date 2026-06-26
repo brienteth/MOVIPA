@@ -1,7 +1,7 @@
 {
   "name": "bendle",
   "version": "0.1.0",
-  "description": "Agentic DeFi Operating System - Furucombo meets Opacus on 0G Chain",
+  "description": "Agentic DeFi Operating System - Furucombo meets Opacus",
   "main": "index.js",
   "scripts": {
     "dev": "./start-dev.sh",
@@ -19,8 +19,7 @@
   "keywords": [
     "defi",
     "agentic",
-    "0g-chain",
-    "http3",
+    "automation",
     "opacus",
     "furucombo"
   ],

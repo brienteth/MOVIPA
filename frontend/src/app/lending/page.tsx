@@ -3,12 +3,12 @@ import React, { useState } from 'react';
 import WalletButton from '../../components/ui/WalletButton';
 import CanvasPage from '../canvas/page';
 import Portfolio from '../../components/Portfolio';
+import StrategiesPage from '../strategies/page';
 
 import { motion } from 'framer-motion';
 
 export default function LendingPage() {
-
-  const [activeTab, setActiveTab] = useState<'workspace' | 'portfolio'>('workspace');
+  const [activeTab, setActiveTab] = useState<'workspace' | 'marketplace' | 'portfolio'>('workspace');
 
   return (
     <div className="min-h-screen bg-[#0A0505] text-white">
@@ -19,7 +19,7 @@ export default function LendingPage() {
               <img src="/brick3-logo.jpg" alt="BRICK3" className="w-7 h-7" />
               <div className="hidden sm:block">
                 <div className="text-sm font-semibold">Manage</div>
-                <div className="text-xs text-white/50">Lending workspace</div>
+                <div className="text-xs text-white/50">Lending & Marketplace</div>
               </div>
             </div>
 
@@ -35,6 +35,18 @@ export default function LendingPage() {
                 <span className="relative z-10 flex items-center gap-2">
                   <span className="material-symbols-outlined text-[16px]">dashboard_customize</span>
                   Workspace
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveTab('marketplace')}
+                className={`relative px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${activeTab === 'marketplace' ? 'text-white' : 'text-white/50 hover:text-white/80'}`}
+              >
+                {activeTab === 'marketplace' && (
+                  <motion.div layoutId="activeTab" className="absolute inset-0 bg-white/10 rounded-lg" />
+                )}
+                <span className="relative z-10 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px]">storefront</span>
+                  Marketplace
                 </span>
               </button>
               <button
@@ -60,11 +72,15 @@ export default function LendingPage() {
 
       <div className="pt-[88px] h-screen flex flex-col">
         <div className="flex-1 w-full mx-auto min-h-0">
-          {activeTab === 'workspace' ? <CanvasPage /> : <Portfolio />}
+          {activeTab === 'workspace' ? (
+            <CanvasPage />
+          ) : activeTab === 'marketplace' ? (
+            <StrategiesPage />
+          ) : (
+            <Portfolio />
+          )}
         </div>
       </div>
-
-
     </div>
   );
 }

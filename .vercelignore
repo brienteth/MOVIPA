@@ -1,7 +1,23 @@
-.venv*
-backend/.venv*
-frontend/node_modules
-node_modules
-.git
-__pycache__
-*.pyc
+# Ignore all virtual environments and Python cache files
+**/.venv*
+**/venv*
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+
+# Ignore node_modules everywhere
+**/node_modules
+
+# Ignore git metadata
+**/.git
+
+# Ignore large build artifacts not needed for execution
+**/artifacts
+**/cache
+agent-kernel/
+frontend/backend/
+
+# Ignore documentation/markdown files
+*.md
+docs/
