@@ -2,6 +2,7 @@ import { configureChains, createConfig } from 'wagmi';
 import { mainnet, sepolia, base, arbitrum, optimism, polygon } from 'wagmi/chains';
 import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
 import { InjectedConnector } from 'wagmi/connectors/injected';
+import { ethers } from 'ethers';
 
 const sonic = {
   id: 146,
@@ -65,3 +66,22 @@ export const wagmiConfig = createConfig({
   publicClient,
   webSocketPublicClient,
 });
+
+export const getOpacusWalletAddress = (ownerAddress: string): string => {
+  if (!ownerAddress) return "0x40021c19a16d2Ca7640D0B93A487023F9f6250B2";
+  try {
+    const factoryAddress = ethers.getAddress("0x026E35ae1FB5458e7332056793f1814A58a687b6".toLowerCase());
+    const ownerAddr = ethers.getAddress(ownerAddress.toLowerCase());
+    const salt = ethers.keccak256(ethers.solidityPacked(['address'], [ownerAddr]));
+    const initCodeHash = "0x14492522cee743e41fc1b1030e684300cf96578fc2a17fdcb47008175442f753";
+    const create2Inputs = ethers.solidityPacked(
+      ['bytes1', 'address', 'bytes32', 'bytes32'],
+      ['0xff', factoryAddress, salt, initCodeHash]
+    );
+    const hash = ethers.keccak256(create2Inputs);
+    return ethers.getAddress("0x" + hash.slice(-40));
+  } catch (e) {
+    console.error("CREATE2 address derivation error:", e);
+    return "0x40021c19a16d2Ca7640D0B93A487023F9f6250B2";
+  }
+};

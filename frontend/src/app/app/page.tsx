@@ -51,13 +51,13 @@ export default function AppLandingPage() {
               transition={{ delay: 0.2 }}
               className="inline-flex items-center rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-medium tracking-wide text-red-300 mb-6"
             >
-              Composable DeFi Automation
+              Simple & Automated
             </motion.div>
             <h1 className="text-5xl md:text-7xl font-semibold leading-[1.1] tracking-tight">
-              Automate and scale DeFi yields with <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">visual strategy builder.</span>
+              Automate your crypto strategies with <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">drag-and-drop bricks</span>.
             </h1>
             <p className="mt-6 text-white/60 max-w-xl text-lg leading-relaxed">
-              Design advanced cross-chain strategy flows seamlessly. Connect your wallet or email, and deploy institutional-grade automated DeFi plans from a single, unified workspace.
+              No coding required. Snap together the actions you need (Borrow, Swap, Yield) just like playing with Lego bricks. Sit back and let the system handle the execution automatically.
             </p>
             <div className="mt-10 flex flex-wrap gap-4">
               <motion.a 
@@ -96,30 +96,30 @@ export default function AppLandingPage() {
                 animate={{ y: [0, -10, 0] }} 
                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                 className="puzzle-piece" style={{ top: '4rem', left: '2rem' }}>
-                FLASHLOAN ⚡
+                BORROW ⚡
               </motion.div>
               <motion.div 
                 animate={{ y: [0, 10, 0] }} 
                 transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
                 className="puzzle-piece" style={{ top: '3rem', right: '2rem' }}>
-                FT MARGIN 🌷
+                YIELD 🏦
               </motion.div>
               <motion.div 
                 animate={{ y: [0, -8, 0] }} 
                 transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
                 className="puzzle-piece" style={{ bottom: '4rem', left: '3rem' }}>
-                FT SWAP 🔀
+                SWAP 🔀
               </motion.div>
               <motion.div 
                 animate={{ y: [0, 12, 0] }} 
                 transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
                 className="puzzle-piece" style={{ bottom: '3rem', right: '3rem' }}>
-                ftUSD MINT 🪙
+                SETTLE ⬇
               </motion.div>
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-[2rem] bg-gradient-to-br from-red-500/20 to-red-900/20 border border-red-500/30 backdrop-blur-2xl text-white text-center flex flex-col items-center justify-center p-6 shadow-[0_0_50px_rgba(239,68,68,0.2)]">
-                <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-red-300/80">Unified</span>
-                <span className="mt-3 text-2xl font-semibold tracking-tight">DeFi Flow</span>
-                <span className="mt-2 text-xs text-white/50 font-medium">Auto-optimized</span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-red-300/80">One-Click</span>
+                <span className="mt-3 text-2xl font-semibold tracking-tight">Execute</span>
+                <span className="mt-2 text-xs text-white/50 font-medium">Fully Automated</span>
               </div>
             </div>
           </motion.div>
@@ -128,10 +128,10 @@ export default function AppLandingPage() {
         <section id="how-it-works" className="mt-32 max-w-6xl mx-auto">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { title: 'Visual Canvas', desc: 'Compose strategy blocks and model complex execution paths in seconds.' },
-              { title: 'Cross-chain Routing', desc: 'Move and manage assets across networks with minimal friction.' },
-              { title: 'Real-time Tracking', desc: 'Monitor portfolio performance and settlement outcomes live.' },
-              { title: 'Advanced Yields', desc: 'Capital-efficient margin management and passive income streams.' }
+              { title: 'Visual Canvas', desc: 'Assemble and deploy transactions in seconds using interactive building blocks.' },
+              { title: 'Cross-Chain Simplicity', desc: 'Move your assets across different networks seamlessly and cheaply.' },
+              { title: 'Live Tracking', desc: 'Monitor your portfolio and transaction outcomes in real-time.' },
+              { title: 'Passive Income', desc: 'Use pre-built templates so your money keeps earning even while you sleep.' }
             ].map((feature, i) => (
               <motion.div 
                 key={i}
@@ -153,10 +153,9 @@ export default function AppLandingPage() {
 
         <section className="mt-32 max-w-6xl mx-auto border-t border-white/10 pt-20">
           <div className="text-center max-w-2xl mx-auto">
-            <h2 className="text-3xl md:text-5xl font-bold tracking-tight">DeFi Problems We Solve</h2>
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Solving DeFi Complexity</h2>
             <p className="mt-4 text-white/60 leading-relaxed text-sm md:text-base">
-              Creating traditional DeFi strategies is complex, error-prone, and expensive. 
-              With Brick3 and the Opacus Marketplace, we eliminate the most common DeFi barriers entirely.
+              Executing crypto transactions, borrowing, or earning passive income is complex and prone to errors. With Brick3 and our ready-made templates, we eliminate these difficulties entirely.
             </p>
           </div>
 
@@ -182,10 +181,10 @@ export default function AppLandingPage() {
                 >
                   <div className="w-10 h-10 rounded-xl bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center font-bold text-yellow-400 text-sm">⚡</div>
                   <div className="flex-1">
-                    <h4 className="text-sm font-semibold text-white">FLASH LOAN (Start)</h4>
-                    <p className="text-xs text-white/50 mt-0.5">Capital borrowing step (0.09% Aave Protocol Fee deducted)</p>
+                    <h4 className="text-sm font-semibold text-white">BORROW (Start)</h4>
+                    <p className="text-xs text-white/50 mt-0.5">The borrowing block that meets your capital needs (with minimal fees).</p>
                   </div>
-                  <div className="text-[10px] text-yellow-400 font-mono">Auto</div>
+                  <div className="text-[10px] text-yellow-400 font-mono">Automated</div>
                 </motion.div>
 
                 {/* Arrow indicator */}
@@ -203,10 +202,10 @@ export default function AppLandingPage() {
                 >
                   <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center font-bold text-blue-400 text-sm">🔀</div>
                   <div className="flex-1">
-                    <h4 className="text-sm font-semibold text-white">DYNAMIC SWAP & DEPOSIT</h4>
-                    <p className="text-xs text-white/50 mt-0.5">The output from the previous step (Dynamic Output) is linked as input</p>
+                    <h4 className="text-sm font-semibold text-white">SWAP AND INVEST</h4>
+                    <p className="text-xs text-white/50 mt-0.5">Funds acquired in the previous step are automatically routed into this block for execution.</p>
                   </div>
-                  <div className="text-[10px] text-blue-400 font-mono">Piping Linked</div>
+                  <div className="text-[10px] text-blue-400 font-mono">Interconnected</div>
                 </motion.div>
 
                 {/* Arrow indicator */}
@@ -224,10 +223,10 @@ export default function AppLandingPage() {
                 >
                   <div className="w-10 h-10 rounded-xl bg-green-500/10 border border-green-500/30 flex items-center justify-center font-bold text-green-400 text-sm">✓</div>
                   <div className="flex-1">
-                    <h4 className="text-sm font-semibold text-white">REPAY & RETURN FUNDS (Closing)</h4>
-                    <p className="text-xs text-white/50 mt-0.5">Automatically added final step. Closes the loan and returns capital to your wallet</p>
+                    <h4 className="text-sm font-semibold text-white">REPAY & TAKE PROFIT (End)</h4>
+                    <p className="text-xs text-white/50 mt-0.5">Your debt is automatically repaid and the net profit is sent straight to your wallet.</p>
                   </div>
-                  <div className="text-[10px] text-green-400 font-mono">Locked</div>
+                  <div className="text-[10px] text-green-400 font-mono">Secured</div>
                 </motion.div>
 
               </div>
@@ -235,7 +234,7 @@ export default function AppLandingPage() {
               {/* Sandbox info indicator */}
               <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2 text-xs text-red-300 relative z-10 leading-relaxed">
                 <span className="material-symbols-outlined text-sm">shield</span>
-                <span>Simulator Protection Active: In case of revert, the transaction is not triggered on-chain, keeping your capital safe.</span>
+                <span>Simulator Protection Active: If a transaction sequence is flawed, the system detects it beforehand and prevents any loss of funds.</span>
               </div>
             </div>
 
@@ -243,20 +242,20 @@ export default function AppLandingPage() {
             <div className="space-y-6">
               {[
                 {
-                  title: "1. Flash Loan Repayment Forgetfulness (Auto-Bracketing)",
-                  desc: "When users forget to add a repayment step after taking a flash loan, the transaction reverts and gas is wasted. Brick3 automatically adds a REPAY / RETURN FUNDS step the moment a FLASH LOAN is added, making this error impossible."
+                  title: "1. End Missing Steps Errors",
+                  desc: "Users often face errors by forgetting to repay after borrowing. We automatically append the 'Repay' brick the moment you borrow, making such mistakes impossible."
                 },
                 {
-                  title: "2. Static Amount Calculation Hassle (Dynamic Piping)",
-                  desc: "Instead of manually calculating how many tokens will be transferred from one step to another, you can dynamically link the amounts of subsequent steps by selecting the 'Output of Previous Step' variable."
+                  title: "2. No Complex Math Required",
+                  desc: "Instead of manually calculating expected yields, connect your blocks using 'Previous Step Output'. The system handles all the math."
                 },
                 {
-                  title: "3. Hidden Deductions and Failed Gas Fees",
-                  desc: "Brick3 automatically deducts the 0.09% Aave flash loan fee from the net profit calculation. Thanks to our trace engine, it instantly reports the failing node and guarantees zero fund loss on the live network."
+                  title: "3. No Hidden Fees or Losses",
+                  desc: "Our system calculates all transaction fees upfront. If your block setup would result in a loss, it warns you and halts execution to protect your funds."
                 },
                 {
-                  title: "4. Opacus Intents & Cross-Chain Escrows (ERC-7752 & ERC-7753)",
-                  desc: "Powered by ERC-7752 intents and ERC-7753 Escrow, Brick3 enables trustless cross-chain flash loans. You can borrow on Ethereum, execute on Sonic, and settle back seamlessly while Opacus executor agents handle bridging securely."
+                  title: "4. Cross-Chain & Stellar Settlement",
+                  desc: "Easily manage transactions across networks (e.g. Ethereum to Base) and settle final strategy yields into Stellar distribution payouts (Treasury, Payroll, Creator Royalty) automatically."
                 }
               ].map((item, i) => (
                 <div key={i} className="flex gap-4">

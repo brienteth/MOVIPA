@@ -95,7 +95,7 @@ const docsData: Section[] = [
             <div className="bg-[#151821] border border-white/10 p-6 rounded-2xl mt-6">
               <h3 className="text-white font-semibold mb-4">Available Block Types</h3>
               <div className="grid grid-cols-2 gap-3">
-                {['Flash Loan', 'Swap', 'Bridge', 'Lend', 'Borrow', 'Stake', 'Yield Farming', 'Claim Rewards'].map(block => (
+                {['Flash Loan', 'Swap', 'Bridge', 'Lend', 'Borrow', 'Stake', 'Yield Farming', 'Claim Rewards', 'Capital Settlement (Stellar/EVM)'].map(block => (
                   <div key={block} className="flex items-center gap-2 p-3 bg-white/5 rounded-xl border border-white/10">
                     <span className="material-symbols-outlined text-blue-400">check_circle</span>
                     <span className="text-white/80 text-sm">{block}</span>
@@ -105,7 +105,7 @@ const docsData: Section[] = [
             </div>
             <div className="bg-blue-900/10 border border-blue-500/30 p-6 rounded-2xl mt-6">
               <h4 className="text-white font-semibold mb-2">Example Strategy</h4>
-              <p className="text-white/70 text-sm">Flash Loan 100 USDC → Swap to ETH → Bridge to Base → Yield Farm → Repay Loan</p>
+              <p className="text-white/70 text-sm">Flash Loan 100 USDC → Swap to ETH → Bridge to Base → Yield Farm → Repay Loan → Settle yield payouts to Stellar</p>
             </div>
           </div>
         )
@@ -391,38 +391,58 @@ const docsData: Section[] = [
         )
       },
       {
-        id: 'flying-tulip-integration',
-        title: 'Flying Tulip Protocol',
+        id: 'settlement-layer',
+        title: 'Capital Settlement (Stellar & EVM)',
         content: (
           <div className="space-y-6">
-            <h2 className="text-3xl font-bold text-white">Flying Tulip Integration</h2>
-            <p className="text-white/70 leading-relaxed">
-              Brick3 natively integrates Flying Tulip protocols to offer capital-efficient cross-margin strategy composition and yield generation via ftUSD.
+            <h2 className="text-3xl font-bold text-white">Settle Capital to Real-World Payouts</h2>
+            <p className="text-white/70 leading-relaxed text-lg">
+              DeFi transactions are only half the battle. Brick3 introduces first-class **Capital Settlement**, allowing strategies to terminate at a dedicated sink node that distributes net yields to Stellar and EVM addresses.
             </p>
+            <div className="grid grid-cols-2 gap-4 mt-6">
+              <div className="bg-[#151821] border border-white/10 p-6 rounded-2xl">
+                <h4 className="text-white font-semibold flex items-center gap-2 mb-2">
+                  <img src="https://cryptologos.cc/logos/stellar-xlm-logo.png" alt="Stellar" className="w-5 h-5" />
+                  Stellar Settlement
+                </h4>
+                <p className="text-white/60 text-sm leading-relaxed">
+                  Bridge net yield to Stellar to execute low-cost institutional distributions. Real-time address format validation and operation-based fee calculations ensure zero execution loss. Supports USDC and XLM.
+                </p>
+              </div>
+              <div className="bg-[#151821] border border-white/10 p-6 rounded-2xl">
+                <h4 className="text-white font-semibold flex items-center gap-2 mb-2">
+                  <img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" alt="EVM" className="w-5 h-5" />
+                  EVM Settlement
+                </h4>
+                <p className="text-white/60 text-sm leading-relaxed">
+                  Settle yields back to EVM networks (Base, Ethereum, Arbitrum, Optimism, Polygon) to fund multi-sig treasury pools, payroll systems, or smart contracts directly.
+                </p>
+              </div>
+            </div>
+
             <div className="bg-[#151821] border border-white/10 p-6 rounded-2xl mt-6">
-              <h3 className="text-white font-semibold mb-4">Supported Operations</h3>
-              <div className="space-y-3">
+              <h3 className="text-white font-semibold mb-4">Rule Engine & Distribution Presets</h3>
+              <p className="text-white/60 text-sm leading-relaxed mb-4">
+                Define how capital splits are computed. You can use standard distribution templates or build custom ones:
+              </p>
+              <div className="grid grid-cols-2 gap-3 text-xs">
                 {[
-                  { name: 'Tulip Deposit / Margin', desc: 'Deposit collateral once and use it simultaneously for lending, borrow margin, and trading.' },
-                  { name: 'ftUSD Minting & Burning', desc: 'Mint yield-bearing ftUSD using your deposited collateral, providing delta-neutral yield for idle assets.' },
-                  { name: 'Tulip Swap CLOB/AMM', desc: 'Swap with depth-aware pricing directly through the Flying Tulip swap routing adapter.' }
-                ].map(op => (
-                  <div key={op.name} className="p-3 bg-white/5 rounded-xl border border-white/10">
-                    <h4 className="text-white font-semibold text-sm">{op.name}</h4>
-                    <p className="text-white/60 text-xs mt-1">{op.desc}</p>
+                  { name: '🏦 Treasury Split', desc: '100% routed to organizational reserve' },
+                  { name: '📊 Revenue Share', desc: '70% Treasury / 20% Developers / 10% Protocol' },
+                  { name: '💰 Payroll', desc: 'Equally distributed to active team member addresses' },
+                  { name: '👑 Creator Royalty', desc: '85% to content creators / 15% to hosting platform' }
+                ].map(item => (
+                  <div key={item.name} className="p-3 bg-white/5 rounded-xl border border-white/10">
+                    <span className="text-white font-medium">{item.name}</span>
+                    <p className="text-white/40 mt-1">{item.desc}</p>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="bg-rose-900/10 border border-rose-500/30 p-6 rounded-2xl mt-6">
-              <h4 className="text-white font-semibold mb-2">Key Advantage</h4>
-              <p className="text-white/70 text-sm">
-                Combining Flying Tulip's Cross-Margin capabilities with Brick3 workflows eliminates protocol hopping and reduces strategy gas costs by executing all credit/margin operations within the same state environment.
-              </p>
-            </div>
           </div>
         )
       },
+
       {
         id: 'opacus-integration',
         title: 'Opacus Intents (ERC-7752 / ERC-7753)',

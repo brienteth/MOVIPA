@@ -11,6 +11,7 @@ import SettingsPage from './app/settings/page';
 import DocsPage from './app/docs/page';
 import LendingPage from './app/lending/page';
 import PortfolioPage from './app/portfolio/page';
+import AiPackagesPage from './app/ai_packages/page';
 import { useUiStore } from './store/ui.store';
 import { wagmiConfig } from './lib/web3';
 import AuthModal from './components/modals/AuthModal';
@@ -53,6 +54,7 @@ function AppContent() {
           {view === 'portfolio' && <PortfolioPage />}
           {view === 'settings' && <SettingsPage />}
           {view === 'docs' && <DocsPage />}
+          {view === 'ai_packages' && <AiPackagesPage />}
         </Brick3AppLayout>
       )}
     </RootLayout>

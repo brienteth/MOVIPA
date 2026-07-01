@@ -49,9 +49,6 @@ const DEFAULT_STRATEGY_TEMPLATES = [
   { id: 'default-arbitrage', name: 'Flash Loan Arbitrage', category: 'arbitrage' },
   { id: 'default-yield', name: 'Multi-Chain Yield', category: 'yield' },
   { id: 'default-bridge', name: 'Cross-Chain Bridge', category: 'bridge' },
-  { id: 'ftusd-delta-neutral', name: 'Flying Tulip ftUSD Delta-Neutral Yield', category: 'stablecoin' },
-  { id: 'ftusd-arbitrage-premium', name: 'ftUSD Arbitrage & Premium Premium', category: 'arbitrage' },
-  { id: 'ftusd-leverage-long', name: 'ftUSD Leverage Long Lido Loop', category: 'yield' },
 ];
 
 const createFlowSteps = [
@@ -106,17 +103,12 @@ export default function VaultsPage() {
         const templatesRes = templatesResRaw as { templates?: Array<{ id: string; name: string; category?: string }> };
         setVaults(vaultsRes.vaults || []);
         setMarketplaceVaults(marketplaceRes.vaults || []);
-        const ftTemplatesMapped = [
-          { id: 'ftusd-delta-neutral', name: 'Flying Tulip ftUSD Delta-Neutral Yield', category: 'stablecoin' },
-          { id: 'ftusd-arbitrage-premium', name: 'ftUSD Arbitrage & Premium Premium', category: 'arbitrage' },
-          { id: 'ftusd-leverage-long', name: 'ftUSD Leverage Long Lido Loop', category: 'yield' },
-        ];
         const mappedTemplates = (templatesRes.templates || []).map((t: any) => ({
           id: t.id,
           name: t.name,
           category: t.category || 'general',
         }));
-        const combinedTemplates = [...ftTemplatesMapped, ...mappedTemplates];
+        const combinedTemplates = [...mappedTemplates];
         setStrategyTemplates(combinedTemplates);
         if (!combinedTemplates.some((t: any) => t.id === selectedTemplate)) {
           setSelectedTemplate(combinedTemplates[0].id);

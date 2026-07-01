@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 import WalletButton from '../../components/ui/WalletButton';
 import CanvasPage from '../canvas/page';
@@ -7,8 +7,18 @@ import StrategiesPage from '../strategies/page';
 
 import { motion } from 'framer-motion';
 
+import { useUiStore } from '../../store/ui.store';
+
 export default function LendingPage() {
-  const [activeTab, setActiveTab] = useState<'workspace' | 'marketplace' | 'portfolio'>('workspace');
+  const { currentView, setView } = useUiStore();
+  
+  const activeTab = currentView === 'canvas' ? 'workspace' : currentView === 'strategies' ? 'marketplace' : 'portfolio';
+
+  const setActiveTab = (tab: 'workspace' | 'marketplace' | 'portfolio') => {
+    if (tab === 'workspace') setView('canvas');
+    if (tab === 'marketplace') setView('strategies');
+    if (tab === 'portfolio') setView('portfolio');
+  };
 
   return (
     <div className="min-h-screen bg-[#0A0505] text-white">
@@ -33,7 +43,6 @@ export default function LendingPage() {
                   <motion.div layoutId="activeTab" className="absolute inset-0 bg-white/10 rounded-lg" />
                 )}
                 <span className="relative z-10 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px]">dashboard_customize</span>
                   Workspace
                 </span>
               </button>
@@ -45,7 +54,6 @@ export default function LendingPage() {
                   <motion.div layoutId="activeTab" className="absolute inset-0 bg-white/10 rounded-lg" />
                 )}
                 <span className="relative z-10 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px]">storefront</span>
                   Marketplace
                 </span>
               </button>
@@ -57,7 +65,6 @@ export default function LendingPage() {
                   <motion.div layoutId="activeTab" className="absolute inset-0 bg-white/10 rounded-lg" />
                 )}
                 <span className="relative z-10 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px]">account_balance_wallet</span>
                   Portfolio
                 </span>
               </button>

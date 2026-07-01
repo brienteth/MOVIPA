@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type AppView = 'canvas' | 'monitor' | 'strategies' | 'vaults' | 'portfolio' | 'settings' | 'docs';
+export type AppView = 'canvas' | 'monitor' | 'strategies' | 'vaults' | 'portfolio' | 'settings' | 'docs' | 'ai_packages';
 
 interface UiState {
   currentView: AppView;

@@ -13,7 +13,7 @@ const CATEGORIES = [
   'Leverage',
 ] as const;
 
-type BlockType = 'FLASH LOAN' | 'SWAP' | 'BRIDGE' | 'LEND' | 'BORROW' | 'STAKE' | 'YIELD' | 'CLAIM' | 'CONDITION' | 'LOOP' | 'FT DEPOSIT' | 'FT USD MINT' | 'FT SWAP';
+type BlockType = 'FLASH LOAN' | 'SWAP' | 'BRIDGE' | 'LEND' | 'BORROW' | 'STAKE' | 'YIELD' | 'CLAIM' | 'CONDITION' | 'LOOP' | 'SETTLEMENT';
 
 interface StrategyCard {
   id: string;
@@ -33,11 +33,8 @@ function mapActionToBlock(action: string, index: number) {
   const a = action.toLowerCase();
   let type: BlockType = 'SWAP';
   if (a.includes('flash') || a.includes('loan')) type = 'FLASH LOAN';
-  else if (a.includes('ft swap') || a.includes('ft_swap')) type = 'FT SWAP';
   else if (a.includes('swap')) type = 'SWAP';
   else if (a.includes('bridge')) type = 'BRIDGE';
-  else if (a.includes('ft deposit') || a.includes('ft_deposit')) type = 'FT DEPOSIT';
-  else if (a.includes('ft usd mint') || a.includes('ft_usd_mint') || a.includes('ftusd')) type = 'FT USD MINT';
   else if (a.includes('lend') || a.includes('supply')) type = 'LEND';
   else if (a.includes('borrow')) type = 'BORROW';
   else if (a.includes('stake')) type = 'STAKE';
@@ -49,13 +46,11 @@ function mapActionToBlock(action: string, index: number) {
     id: `ai-${index}-${Date.now()}`,
     type,
     provider: type === 'FLASH LOAN' ? 'Aave' : undefined,
-    asset: ['FLASH LOAN', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'BRIDGE', 'FT DEPOSIT', 'FT USD MINT'].includes(type) ? 'USDC' : undefined,
-    amount: ['FLASH LOAN', 'SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'FT DEPOSIT', 'FT USD MINT', 'FT SWAP'].includes(type) ? 10000 : undefined,
-    from: type === 'SWAP' || type === 'FT SWAP' ? 'USDC' : undefined,
-    to: type === 'SWAP' || type === 'FT SWAP' ? 'ETH' : undefined,
-    dex: type === 'SWAP' ? 'Auto' : type === 'FT SWAP' ? 'Flying Tulip CLOB' : undefined,
-    ftAction: type === 'FT DEPOSIT' ? 'deposit' : type === 'FT USD MINT' ? 'mint' : undefined,
-    ftOrderType: type === 'FT SWAP' ? 'market' : undefined,
+    asset: ['FLASH LOAN', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'BRIDGE'].includes(type) ? 'USDC' : undefined,
+    amount: ['FLASH LOAN', 'SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE'].includes(type) ? 10000 : undefined,
+    from: type === 'SWAP' ? 'USDC' : undefined,
+    to: type === 'SWAP' ? 'ETH' : undefined,
+    dex: type === 'SWAP' ? 'Auto' : undefined,
   };
 }
 
@@ -67,14 +62,11 @@ function nodeToBlock(node: { type: string; params?: Record<string, any> }, index
     block.provider = params.provider || params.protocol || 'Aave';
     block.asset = params.asset || params.token || 'USDC';
     block.amount = Number(params.amount || 10000);
-  } else if (block.type === 'SWAP' || block.type === 'FT SWAP') {
+  } else if (block.type === 'SWAP') {
     block.from = params.tokenIn || params.from || 'USDC';
     block.to = params.tokenOut || params.to || 'ETH';
-    block.dex = block.type === 'FT SWAP' ? 'Flying Tulip CLOB' : (params.dex || 'Auto');
+    block.dex = params.dex || 'Auto';
     block.amount = Number(params.amountIn || params.amount || 1000);
-    if (block.type === 'FT SWAP') {
-      block.ftOrderType = params.orderType || 'market';
-    }
   } else if (block.type === 'BRIDGE') {
     block.from = params.fromChain || params.from_chain || 'Ethereum';
     block.to = params.toChain || params.to_chain || 'Base';
@@ -87,10 +79,6 @@ function nodeToBlock(node: { type: string; params?: Record<string, any> }, index
   } else if (block.type === 'STAKE' || block.type === 'YIELD') {
     block.asset = params.asset || params.token || 'DAI';
     block.amount = Number(params.amount || 1000);
-  } else if (block.type === 'FT DEPOSIT' || block.type === 'FT USD MINT') {
-    block.asset = params.asset || params.token || 'USDC';
-    block.amount = Number(params.amount || 1000);
-    block.ftAction = params.action || (block.type === 'FT DEPOSIT' ? 'deposit' : 'mint');
   } else if (block.type === 'CLAIM') {
     block.recipient = params.recipient || 'My Wallet';
   }
@@ -107,74 +95,18 @@ export default function StrategiesPage() {
   const [aiError, setAiError] = useState<string | null>(null);
 
   useEffect(() => {
-    const FT_TEMPLATES: StrategyCard[] = [
-      {
-        id: 'ftusd-delta-neutral',
-        title: 'Flying Tulip ftUSD Delta-Neutral Yield',
-        apy: '14.5%',
-        risk: 'Low',
-        networks: 'Arbitrum + Ethereum',
-        createdBy: 'BRICK3 Labs',
-        usage: 8431,
-        category: 'Stablecoin',
-        description: 'Deposit USDC as collateral on Flying Tulip, mint yield-bearing ftUSD, and stake it delta-neutrally in Curve pools to farm APY.',
-        prompt: 'Lend USDC on Flying Tulip, mint ftUSD, and supply to yield pools',
-        strategy: {
-          nodes: [
-            { type: 'FT DEPOSIT', params: { asset: 'USDC', amount: 10000, action: 'deposit' } },
-            { type: 'FT USD MINT', params: { asset: 'USDC', amount: 10000, action: 'mint' } },
-            { type: 'YIELD', params: { asset: 'ftUSD', amount: 10000 } }
-          ]
-        }
-      },
-      {
-        id: 'ftusd-arbitrage-premium',
-        title: 'ftUSD Arbitrage & Premium Premium',
-        apy: '24.2%',
-        risk: 'Medium',
-        networks: 'Base + Ethereum',
-        createdBy: 'BRICK3 Labs',
-        usage: 3491,
-        category: 'Arbitrage',
-        description: 'Mint ftUSD on Base using collateral, swap ftUSD to USDC on Flying Tulip CLOB at premium, and bridge back to Ethereum.',
-        prompt: 'Mint ftUSD on Base, swap for USDC on Flying Tulip CLOB, and bridge to Ethereum',
-        strategy: {
-          nodes: [
-            { type: 'FT DEPOSIT', params: { asset: 'USDC', amount: 10000, action: 'deposit' } },
-            { type: 'FT USD MINT', params: { asset: 'USDC', amount: 10000, action: 'mint' } },
-            { type: 'FT SWAP', params: { from: 'ftUSD', to: 'USDC', amount: 10000, orderType: 'market' } },
-            { type: 'BRIDGE', params: { fromChain: 'Base', toChain: 'Ethereum', asset: 'USDC', amount: 10000 } }
-          ]
-        }
-      },
-      {
-        id: 'ftusd-leverage-long',
-        title: 'ftUSD Leverage Long Lido Loop',
-        apy: '18.8%',
-        risk: 'Medium',
-        networks: 'Ethereum',
-        createdBy: 'BRICK3 Labs',
-        usage: 5219,
-        category: 'Yield',
-        description: 'Deposit collateral on Flying Tulip, mint ftUSD, swap ftUSD for ETH, and stake ETH on Lido to leverage long yield.',
-        prompt: 'Deposit to Flying Tulip, mint ftUSD, swap ftUSD for ETH, and stake on Lido',
-        strategy: {
-          nodes: [
-            { type: 'FT DEPOSIT', params: { asset: 'USDC', amount: 10000, action: 'deposit' } },
-            { type: 'FT USD MINT', params: { asset: 'USDC', amount: 10000, action: 'mint' } },
-            { type: 'FT SWAP', params: { from: 'ftUSD', to: 'ETH', amount: 10000, orderType: 'market' } },
-            { type: 'STAKE', params: { asset: 'ETH', amount: 3.3 } }
-          ]
-        }
-      }
-    ];
-
     const load = async () => {
       const [templateResult, quickResult] = await Promise.allSettled([api.templates(), api.quickTemplates()]);
 
       if (templateResult.status === 'fulfilled') {
         const data = templateResult.value as { total: number; templates?: Array<any> };
-        const mapped = (data.templates || []).map((t: any, i: number) => {
+        const mapped = (data.templates || [])
+          .filter((t: any) => {
+            const name = (t.name || '').toLowerCase();
+            const desc = (t.description || '').toLowerCase();
+            return !name.includes('flying tulip') && !name.includes('ftusd') && !desc.includes('ftusd');
+          })
+          .map((t: any, i: number) => {
           const normalizedCategory = t.category ? `${t.category.charAt(0).toUpperCase()}${t.category.slice(1)}` : '';
           return {
             id: t.id,
@@ -190,13 +122,19 @@ export default function StrategiesPage() {
             strategy: t.strategy,
           };
         });
-        setTemplates([...FT_TEMPLATES, ...mapped]);
+        setTemplates([...mapped]);
         return;
       }
 
       if (quickResult.status === 'fulfilled') {
         const data = quickResult.value as { templates?: Array<{ id: string; title: string; prompt: string; category?: string }> };
-        const mapped = (data.templates || []).map((t, i) => ({
+        const mapped = (data.templates || [])
+          .filter(t => {
+            const title = (t.title || '').toLowerCase();
+            const prompt = (t.prompt || '').toLowerCase();
+            return !title.includes('flying tulip') && !title.includes('ftusd') && !prompt.includes('ftusd');
+          })
+          .map((t, i) => ({
           id: t.id,
           title: t.title,
           apy: `${(12 + i * 2).toFixed(0)}%`,
@@ -207,9 +145,9 @@ export default function StrategiesPage() {
           category: CATEGORIES[i % CATEGORIES.length],
           prompt: t.prompt,
         }));
-        setTemplates([...FT_TEMPLATES, ...mapped]);
+        setTemplates([...mapped]);
       } else {
-        setTemplates(FT_TEMPLATES);
+        setTemplates([]);
       }
     };
     load();
@@ -332,8 +270,11 @@ export default function StrategiesPage() {
               <p className="text-white/60">Usage <span className="text-white float-right">{s.usage.toLocaleString()}</span></p>
             </div>
             {s.strategy?.nodes?.length ? (
-              <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/50">
-                {s.strategy.nodes.length} executable steps wired to the current compiler
+              <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/50 flex items-center justify-between">
+                <span>{s.strategy.nodes.length} executable steps wired to the current compiler</span>
+                {s.strategy.nodes.some((n: any) => (n.type || '').toUpperCase() === 'SETTLEMENT') && (
+                  <span className="text-[9px] font-mono bg-[#A7F432]/10 text-[#A7F432] px-2 py-0.5 rounded-full border border-[#A7F432]/20">⬇ Settlement Ready</span>
+                )}
               </div>
             ) : null}
             <button

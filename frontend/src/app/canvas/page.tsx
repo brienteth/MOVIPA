@@ -1,16 +1,23 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { useAccount, useContractWrite, useWaitForTransaction } from 'wagmi';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import ReactFlow, { Background, Controls, NodeChange, BackgroundVariant } from 'reactflow';
 import 'reactflow/dist/style.css';
 import ModuleNode from '../../components/canvas/ModuleNode';
 import { api } from '../../lib/api';
 import { BRICK3_CONTRACTS_BY_CHAIN, bandleRouterAbi, strategyRegistryAbi } from '../../lib/contracts';
 import { useToast } from '../../hooks/use-toast';
+import { getOpacusWalletAddress } from '../../lib/web3';
 
 import { simulationEngine } from '../../services/simulationEngine';
 import { useSimulationStore } from '../../store/simulation.store';
+
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
 
 const TUTORIAL_CONTENT: Record<BlockType, { title: string; desc: string }> = {
   'FLASH LOAN': { title: 'Flash Loan', desc: 'Borrow uncollateralized funds for a single transaction. You must return the funds + fee within the same block.' },
@@ -25,13 +32,10 @@ const TUTORIAL_CONTENT: Record<BlockType, { title: string; desc: string }> = {
   'CLAIM': { title: 'Claim', desc: 'Claim accrued rewards from lending, staking, or farming.' },
   'CONDITION': { title: 'Condition', desc: 'Execute logic only if specific market conditions (prices, rates) are met.' },
   'LOOP': { title: 'Loop', desc: 'Repeat a set of actions recursively (e.g., recursive borrowing for leverage).' },
-  'FT DEPOSIT': { title: 'Flying Tulip Deposit', desc: 'Deposit collateral once and use it simultaneously for lending, borrow margin, and trading on Flying Tulip.' },
-  'FT USD MINT': { title: 'Mint ftUSD', desc: 'Mint yield-bearing ftUSD using your deposited collateral, providing delta-neutral yield for idle assets.' },
-  'FT SWAP': { title: 'Flying Tulip Swap', desc: 'Swap with depth-aware pricing directly through the Flying Tulip CLOB/AMM routing adapter.' },
-  'FT STAKE': { title: 'Stake ftUSD (Yield)', desc: 'Stake your ftUSD to receive sftUSD, accruing delta-neutral yields over time.' },
+  'SETTLEMENT': { title: 'Settlement', desc: 'Distribute final strategy yields/profits to multiple destinations (e.g., Stellar or EVM networks).' },
 };
 
-type BlockType = 'FLASH LOAN' | 'SWAP' | 'BRIDGE' | 'LEND' | 'BORROW' | 'STAKE' | 'YIELD' | 'REPAY' | 'RETURN FUNDS' | 'CLAIM' | 'CONDITION' | 'LOOP' | 'FT DEPOSIT' | 'FT USD MINT' | 'FT SWAP' | 'FT STAKE';
+type BlockType = 'FLASH LOAN' | 'SWAP' | 'BRIDGE' | 'LEND' | 'BORROW' | 'STAKE' | 'YIELD' | 'REPAY' | 'RETURN FUNDS' | 'CLAIM' | 'CONDITION' | 'LOOP' | 'SETTLEMENT';
 
 interface CanvasBlock {
   id: string;
@@ -45,12 +49,15 @@ interface CanvasBlock {
   to?: string;
   dex?: string;
   recipient?: string;
-  ftAction?: 'deposit' | 'withdraw' | 'mint' | 'burn';
-  ftOrderType?: 'market' | 'limit';
   position?: { x: number; y: number };
   amountMode?: 'fixed' | 'dynamic';
   sourceNodeId?: string;
   is_previous_output?: boolean;
+  expression?: string;
+  maxIterations?: number;
+  settlementNetwork?: 'stellar' | 'evm';
+  settlementDistType?: string;
+  settlementRecipients?: Array<{ id: string; name: string; address: string; share: number; memo?: string }>;
 }
 
 interface SimResult {
@@ -67,6 +74,7 @@ interface SimResult {
   executionRegion?: string;
   failingNode?: string | null;
   revertReason?: string | null;
+  settlement?: any;
 }
 
 interface BackendCompiledAction {
@@ -88,39 +96,38 @@ interface SimModalState {
   stage: 'running' | 'done';
 }
 
-const MODULES: BlockType[] = ['FLASH LOAN', 'SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP', 'FT DEPOSIT', 'FT USD MINT', 'FT SWAP', 'FT STAKE'];
 
-const TOKEN_OPTIONS = ['USDC', 'USDT', 'DAI', 'ETH', 'WETH', 'WBTC', 'ftUSD', 'sftUSD'] as const;
+const TOKEN_OPTIONS = ['USDC', 'USDT', 'DAI', 'ETH', 'WETH', 'WBTC'] as const;
 const CHAIN_OPTIONS = ['Ethereum', 'Base', 'Arbitrum', 'Optimism', 'Polygon', '0G', 'Sonic'] as const;
 const NETWORK_OPTIONS = CHAIN_OPTIONS;
-const FLASH_PROVIDERS = ['Aave', 'Balancer', 'Morpho'] as const;
-const DEX_OPTIONS = ['Auto', 'Uniswap', 'Curve', 'CowSwap', 'SushiSwap', 'Balancer', 'Flying Tulip CLOB'] as const;
+const FLASH_PROVIDERS = ['Aave'] as const;
+const DEX_OPTIONS = ['Auto', 'Uniswap', 'Curve', 'CowSwap', 'SushiSwap', 'Balancer'] as const;
 const DEX_OPTIONS_BY_CHAIN: Record<string, string[]> = {
-  Ethereum: ['Auto', 'Uniswap', 'Curve', 'CowSwap', 'SushiSwap', 'Balancer', 'Flying Tulip CLOB'],
-  Base: ['Auto', 'Uniswap', 'SushiSwap', 'Balancer', 'Curve', 'CowSwap', 'Flying Tulip CLOB'],
-  Arbitrum: ['Auto', 'Uniswap', 'Curve', 'CowSwap', 'SushiSwap', 'Balancer', 'Flying Tulip CLOB'],
-  Optimism: ['Auto', 'Uniswap', 'Curve', 'SushiSwap', 'Balancer', 'Flying Tulip CLOB'],
-  Polygon: ['Auto', 'QuickSwap', 'Curve', 'SushiSwap', 'Balancer', 'Flying Tulip CLOB'],
+  Ethereum: ['Auto', 'Uniswap', 'Curve', 'CowSwap', 'SushiSwap', 'Balancer'],
+  Base: ['Auto', 'Uniswap', 'SushiSwap', 'Balancer', 'Curve', 'CowSwap'],
+  Arbitrum: ['Auto', 'Uniswap', 'Curve', 'CowSwap', 'SushiSwap', 'Balancer'],
+  Optimism: ['Auto', 'Uniswap', 'Curve', 'SushiSwap', 'Balancer'],
+  Polygon: ['Auto', 'QuickSwap', 'Curve', 'SushiSwap', 'Balancer'],
   '0G': ['Auto', '0G DEX'],
-  Sonic: ['Auto', 'Shadow Exchange', 'Equalizer', 'Curve', 'CowSwap', 'SushiSwap', 'Balancer', 'Flying Tulip CLOB'],
+  Sonic: ['Auto', 'Shadow Exchange', 'Equalizer', 'Curve', 'CowSwap', 'SushiSwap', 'Balancer'],
 };
 const FLASH_PROVIDERS_BY_CHAIN: Record<string, string[]> = {
-  Ethereum: ['Aave', 'Balancer', 'Morpho', 'dYdX'],
-  Base: ['Aave', 'Morpho', 'dYdX'],
-  Arbitrum: ['Aave', 'dYdX'],
+  Ethereum: ['Aave'],
+  Base: ['Aave'],
+  Arbitrum: ['Aave'],
   Optimism: ['Aave'],
   Polygon: ['Aave'],
   '0G': ['Aave'],
-  Sonic: ['Aave', 'Morpho', 'dYdX'],
+  Sonic: ['Aave'],
 };
 const MODULE_SUPPORT_BY_CHAIN: Record<string, Array<CanvasBlock['type']>> = {
-  Ethereum: ['FLASH LOAN', 'SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP', 'FT DEPOSIT', 'FT USD MINT', 'FT SWAP', 'FT STAKE'],
-  Base: ['FLASH LOAN', 'SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP', 'FT DEPOSIT', 'FT USD MINT', 'FT SWAP', 'FT STAKE'],
-  Arbitrum: ['SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP', 'FT DEPOSIT', 'FT USD MINT', 'FT SWAP', 'FT STAKE'],
-  Optimism: ['SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP', 'FT DEPOSIT', 'FT USD MINT', 'FT SWAP', 'FT STAKE'],
-  Polygon: ['SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP', 'FT DEPOSIT', 'FT USD MINT', 'FT SWAP', 'FT STAKE'],
+  Ethereum: ['FLASH LOAN', 'SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP'],
+  Base: ['FLASH LOAN', 'SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP'],
+  Arbitrum: ['SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP'],
+  Optimism: ['SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP'],
+  Polygon: ['SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP'],
   '0G': ['SWAP', 'BRIDGE', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP'],
-  Sonic: ['FLASH LOAN', 'SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP', 'FT DEPOSIT', 'FT USD MINT', 'FT SWAP', 'FT STAKE'],
+  Sonic: ['FLASH LOAN', 'SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP'],
 };
 
 const TOKEN_ADDRESSES_BY_CHAIN: Record<string, Record<string, string>> = {
@@ -131,8 +138,6 @@ const TOKEN_ADDRESSES_BY_CHAIN: Record<string, Record<string, string>> = {
     'ETH': '0x0000000000000000000000000000000000000000',
     'WETH': '0x4200000000000000000000000000000000000006',
     'WBTC': '0x0000000000000000000000000000000000000000',
-    'ftUSD': '0x7bb700f9f3d2db8df6e235ce144f6b001a1d1ed5',
-    'sftUSD': '0x7bb700f9f3d2db8df6e235ce144f6b001a1d1ed6',
   },
   Sonic: {
     'USDC': '0x29219dd400f2Bf60E5a23d13Be72B486D4038894',
@@ -141,8 +146,6 @@ const TOKEN_ADDRESSES_BY_CHAIN: Record<string, Record<string, string>> = {
     'ETH': '0x0000000000000000000000000000000000000000',
     'WETH': '0x50c4271a269386c6b17dc69a5a4086ad2791d01b',
     'WBTC': '0x0000000000000000000000000000000000000000',
-    'ftUSD': '0x618A13a1dE79cde892a1cA5B3FC24D4AA66b718D',
-    'sftUSD': '0x618A13a1dE79cde892a1cA5B3FC24D4AA66b718E',
   },
   Ethereum: {
     'USDC': '0xA0b86a33E6441e88C5F2712C3E9b74F5c4d6E3E6',
@@ -151,7 +154,6 @@ const TOKEN_ADDRESSES_BY_CHAIN: Record<string, Record<string, string>> = {
     'ETH': '0x0000000000000000000000000000000000000000',
     'WETH': '0xC02aaA39b223FE8D0A0e5C4F27ead9083C756Cc2',
     'WBTC': '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
-    'ftUSD': '0x0000000000000000000000000000000000000000',
   },
   Arbitrum: {
     'USDC': '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
@@ -160,7 +162,6 @@ const TOKEN_ADDRESSES_BY_CHAIN: Record<string, Record<string, string>> = {
     'ETH': '0x0000000000000000000000000000000000000000',
     'WETH': '0x82aF49447D8a07e3bd95BD0d56f352415231aa11',
     'WBTC': '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
-    'ftUSD': '0x0000000000000000000000000000000000000000',
   },
   Optimism: {
     'USDC': '0x0b2C639c53A0d312891d604cEE0ddC1BCA43D36F',
@@ -169,7 +170,6 @@ const TOKEN_ADDRESSES_BY_CHAIN: Record<string, Record<string, string>> = {
     'ETH': '0x0000000000000000000000000000000000000000',
     'WETH': '0x4200000000000000000000000000000000000006',
     'WBTC': '0x68f180fcCe6836688e9084f035309E29Bf0A2095',
-    'ftUSD': '0x0000000000000000000000000000000000000000',
   },
   Polygon: {
     'USDC': '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',
@@ -178,7 +178,6 @@ const TOKEN_ADDRESSES_BY_CHAIN: Record<string, Record<string, string>> = {
     'ETH': '0x0000000000000000000000000000000000000000',
     'WETH': '0x7ceB23fD6bC3adD59E62ac25578270cFf1b9f619',
     'WBTC': '0x1BFD67037B42Cf73acF2047067bd4F2C47d9BfD6',
-    'ftUSD': '0x0000000000000000000000000000000000000000',
   },
   '0G': {
     'USDC': '0x0000000000000000000000000000000000000000',
@@ -187,7 +186,101 @@ const TOKEN_ADDRESSES_BY_CHAIN: Record<string, Record<string, string>> = {
     'ETH': '0x0000000000000000000000000000000000000000',
     'WETH': '0x0000000000000000000000000000000000000000',
     'WBTC': '0x0000000000000000000000000000000000000000',
-    'ftUSD': '0x0000000000000000000000000000000000000000',
+  }
+};
+
+type ProtocolAction = {
+  label: string;
+  type: string;
+  defaultParams?: any;
+};
+
+type ProtocolCategory = {
+  name: string;
+  logo: string;
+  actions: ProtocolAction[];
+};
+
+const PROTOCOL_CATEGORIES: ProtocolCategory[] = [
+  {
+    name: 'Stargate',
+    logo: 'https://cryptologos.cc/logos/stargate-finance-stg-logo.png',
+    actions: [
+      { label: 'Token Bridge', type: 'BRIDGE', defaultParams: { bridgeProvider: 'stargate' } }
+    ]
+  },
+  {
+    name: 'Utility',
+    logo: '',
+    actions: [
+      { label: 'Return Funds', type: 'RETURN FUNDS' },
+      { label: 'Claim', type: 'CLAIM' },
+      { label: 'Condition', type: 'CONDITION' },
+      { label: 'Loop', type: 'LOOP' }
+    ]
+  },
+  {
+    name: 'Aave V3',
+    logo: 'https://cryptologos.cc/logos/aave-aave-logo.png',
+    actions: [
+      { label: 'Supply', type: 'LEND', defaultParams: { provider: 'Aave V3' } },
+      { label: 'Withdraw', type: 'LEND', defaultParams: { provider: 'Aave V3' } },
+      { label: 'Borrow', type: 'BORROW', defaultParams: { provider: 'Aave V3' } },
+      { label: 'Repay', type: 'REPAY', defaultParams: { provider: 'Aave V3' } },
+      { label: 'Flashloan', type: 'FLASH LOAN', defaultParams: { provider: 'Aave V3' } }
+    ]
+  },
+  {
+    name: 'Uniswap V3',
+    logo: 'https://cryptologos.cc/logos/uniswap-uni-logo.png',
+    actions: [
+      { label: 'Swap Token', type: 'SWAP', defaultParams: { dex: 'Uniswap V3' } }
+    ]
+  },
+  {
+    name: 'Balancer',
+    logo: 'https://cryptologos.cc/logos/balancer-bal-logo.png',
+    actions: [
+      { label: 'Swap Token', type: 'SWAP', defaultParams: { dex: 'Balancer' } }
+    ]
+  },
+  {
+    name: 'Compound V3',
+    logo: 'https://cryptologos.cc/logos/compound-comp-logo.png',
+    actions: [
+      { label: 'Supply', type: 'LEND', defaultParams: { provider: 'Compound V3' } },
+      { label: 'Withdraw', type: 'LEND', defaultParams: { provider: 'Compound V3' } },
+      { label: 'Borrow', type: 'BORROW', defaultParams: { provider: 'Compound V3' } },
+      { label: 'Repay', type: 'REPAY', defaultParams: { provider: 'Compound V3' } }
+    ]
+  },
+  {
+    name: 'Settlement',
+    logo: 'https://cryptologos.cc/logos/stellar-xlm-logo.png',
+    actions: [
+      { label: 'Settle to Stellar', type: 'SETTLEMENT', defaultParams: { settlementNetwork: 'stellar', asset: 'USDC', settlementDistType: 'TREASURY' } },
+      { label: 'Settle to EVM', type: 'SETTLEMENT', defaultParams: { settlementNetwork: 'evm', asset: 'USDC', settlementDistType: 'TREASURY' } }
+    ]
+  }
+];
+
+const getTransactionOverrides = async (provider: ethers.BrowserProvider) => {
+  try {
+    const feeData = await provider.getFeeData();
+    const overrides: any = {};
+    if (feeData.maxFeePerGas) {
+      overrides.maxFeePerGas = feeData.maxFeePerGas;
+    }
+    if (feeData.maxPriorityFeePerGas) {
+      overrides.maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+    }
+    if (!overrides.maxFeePerGas && feeData.gasPrice) {
+      overrides.gasPrice = feeData.gasPrice;
+    }
+    return overrides;
+  } catch (e) {
+    console.error("Failed to fetch fee data:", e);
+    return {};
   }
 };
 
@@ -199,6 +292,7 @@ export default function CanvasPage() {
   const [tutorialModal, setTutorialModal] = useState<BlockType | null>(null);
   const [dragging, setDragging] = useState<BlockType | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+
 
   const currentChainId = selectedChain === 'Base' ? 8453 : selectedChain === 'Sonic' ? 146 : 11155111;
   const currentContracts = BRICK3_CONTRACTS_BY_CHAIN[currentChainId] || BRICK3_CONTRACTS_BY_CHAIN[8453];
@@ -235,9 +329,9 @@ export default function CanvasPage() {
     // 2. Naked Borrow Check
     let hasCollateral = false;
     for (const b of blocksList) {
-      if (['LEND', 'FT DEPOSIT', 'FLASH LOAN', 'STAKE', 'YIELD'].includes(b.type)) {
+      if (['LEND', 'FLASH LOAN', 'STAKE', 'YIELD'].includes(b.type)) {
         hasCollateral = true;
-      } else if (['BORROW', 'FT USD MINT'].includes(b.type)) {
+      } else if (['BORROW'].includes(b.type)) {
         if (!hasCollateral) {
           return `Critical Error: A Deposit/Lend or Flash Loan step must exist before the ${b.type} step to create collateral (Naked Borrow detected)!`;
         }
@@ -255,7 +349,7 @@ export default function CanvasPage() {
         if (asset) {
           activeAssets.push(normalizeToken(asset));
         }
-      } else if (type === 'SWAP' || type === 'FT SWAP') {
+      } else if (type === 'SWAP') {
         const tokenIn = b.from;
         const tokenOut = b.to;
         if (!tokenIn) {
@@ -281,7 +375,7 @@ export default function CanvasPage() {
         if (tokenOut) {
           activeAssets.push(normOut);
         }
-      } else if (['BRIDGE', 'LEND', 'FT DEPOSIT', 'STAKE', 'YIELD'].includes(type)) {
+      } else if (['BRIDGE', 'LEND', 'STAKE', 'YIELD'].includes(type)) {
         const asset = b.asset;
         if (!asset) continue;
         
@@ -297,15 +391,18 @@ export default function CanvasPage() {
         if (!isValidInput && activeAssets.length > 0) {
           return `Critical Error: The input asset for the ${type} step (${asset}) does not match the assets generated in previous steps! Please check the amounts and routing steps.`;
         }
-      } else if (['BORROW', 'FT USD MINT'].includes(type)) {
-        if (type === 'FT USD MINT') {
-          activeAssets.push(normalizeToken('ftUSD'));
-        } else {
-          const asset = b.asset;
-          if (asset) {
-            activeAssets.push(normalizeToken(asset));
-          }
+      } else if (['BORROW'].includes(type)) {
+        const asset = b.asset;
+        if (asset) {
+          activeAssets.push(normalizeToken(asset));
         }
+      } else if (type === 'SETTLEMENT') {
+        // Settlement is a sink node — does not produce or consume tracked assets.
+        // Validate it must be last.
+        if (i !== blocksList.length - 1) {
+          return 'SETTLEMENT must be the last step in the strategy. No actions can follow it.';
+        }
+        continue;
       }
     }
 
@@ -376,6 +473,454 @@ export default function CanvasPage() {
   // Ref to avoid stale closure in confirmExecute
   const compiledStrategyRef = useRef<BackendCompiledStrategy | null>(null);
   const [txError, setTxError] = useState<string | null>(null);
+  const [isStorefrontOpen, setIsStorefrontOpen] = useState(false);
+  
+  // AI Automation States
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiStep, setAiStep] = useState(0);
+  const [aiStatus, setAiStatus] = useState('');
+  const [aiPackage, setAiPackage] = useState('Bronze');
+  const [kernelBalance, setKernelBalance] = useState('0.00');
+  const [fundingUSDC, setFundingUSDC] = useState(false);
+  const kernelAddress = address ? getOpacusWalletAddress(address) : "0x0000000000000000000000000000000000000000";
+  const sharedKernelAddress = "0x40021c19a16d2Ca7640D0B93A487023F9f6250B2";
+  const usdcAddress = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+  const FACTORY_ADDRESS = "0x026E35ae1FB5458e7332056793f1814A58a687b6";
+  const [sharedKernelBalance, setSharedKernelBalance] = useState("0.00");
+  const [isSharedKernelOwner, setIsSharedKernelOwner] = useState(false);
+
+  const fetchKernelBalance = async () => {
+    try {
+      const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
+      const abi = [
+        "function balanceOf(address account) external view returns (uint256)",
+        "function owner() external view returns (address)"
+      ];
+      const contract = new ethers.Contract(usdcAddress, abi, provider);
+      
+      const bal = await contract.balanceOf(kernelAddress);
+      setKernelBalance(ethers.formatUnits(bal, 6));
+
+      const sharedBal = await contract.balanceOf(sharedKernelAddress);
+      setSharedKernelBalance(ethers.formatUnits(sharedBal, 6));
+
+      if (address) {
+        try {
+          const code = await provider.getCode(sharedKernelAddress);
+          if (code !== "0x" && code !== "0x00") {
+            const kernelContract = new ethers.Contract(sharedKernelAddress, abi, provider);
+            const owner = await kernelContract.owner();
+            setIsSharedKernelOwner(owner.toLowerCase() === address.toLowerCase());
+          }
+        } catch (e) {
+          console.warn("Could not fetch shared kernel owner:", e);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+  useEffect(() => {
+    if (address && isConnected) {
+      fetchKernelBalance();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, isConnected]);
+
+  const [showFundModal, setShowFundModal] = useState(false);
+  const [fundType, setFundType] = useState<'deposit' | 'withdraw' | 'shared_withdraw'>('deposit');
+  const [fundAmount, setFundAmount] = useState('2.0');
+
+  const openDepositModal = () => {
+    setFundType('deposit');
+    setFundAmount('2.0');
+    setShowFundModal(true);
+  };
+
+  const openWithdrawModal = () => {
+    setFundType('withdraw');
+    setFundAmount(kernelBalance);
+    setShowFundModal(true);
+  };
+
+  const executeDeposit = async (amountStr: string) => {
+    if (!amountStr || isNaN(Number(amountStr)) || Number(amountStr) <= 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid USDC amount.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setFundingUSDC(true);
+    try {
+      // @ts-ignore
+      let provider = new ethers.BrowserProvider(window.ethereum);
+      let signer = await provider.getSigner();
+
+      // Check network and switch to Base Mainnet (8453) if needed
+      const network = await provider.getNetwork();
+      if (Number(network.chainId) !== 8453) {
+        toast({
+          title: "Switching Network",
+          description: "Please switch your wallet network to Base Mainnet...",
+        });
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x2105' }], // 8453 in hex
+          });
+          // Re-initialize provider and signer
+          provider = new ethers.BrowserProvider(window.ethereum);
+          signer = await provider.getSigner();
+        } catch (switchError: any) {
+          if (switchError.code === 4902) {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [
+                {
+                  chainId: '0x2105',
+                  chainName: 'Base',
+                  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+                  rpcUrls: ['https://mainnet.base.org'],
+                  blockExplorerUrls: ['https://basescan.org'],
+                },
+              ],
+            });
+            provider = new ethers.BrowserProvider(window.ethereum);
+            signer = await provider.getSigner();
+          } else {
+            throw switchError;
+          }
+        }
+      }
+
+      const abi = ["function transfer(address to, uint256 amount) public returns (bool)"];
+      const usdcContract = new ethers.Contract(usdcAddress, abi, signer);
+      
+      const safeTruncateAmount = (val: string, dec: number) => {
+        if (!val || isNaN(Number(val))) return '0';
+        const parts = val.split('.');
+        if (parts.length > 1) return `${parts[0]}.${parts[1].slice(0, dec)}`;
+        return val;
+      };
+      const amount = ethers.parseUnits(safeTruncateAmount(amountStr, 6), 6);
+      const overrides = await getTransactionOverrides(provider);
+      const tx = await usdcContract.transfer(kernelAddress, amount, overrides);
+      await tx.wait();
+      
+      toast({
+        title: "USDC Deposit Confirmed!",
+        description: `Your Smart Account is now funded with ${amountStr} USDC.`,
+        variant: "success",
+      });
+      await fetchKernelBalance();
+    } catch (e: any) {
+      toast({
+        title: "Deposit Failed",
+        description: e.message || String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setFundingUSDC(false);
+    }
+  };
+
+  const executeWithdraw = async (amountStr: string) => {
+    if (!address) return;
+    if (!amountStr || isNaN(Number(amountStr)) || Number(amountStr) <= 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid USDC amount.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const amountNum = Number(amountStr);
+    const balanceNum = Number(kernelBalance);
+    if (amountNum > balanceNum) {
+      toast({
+        title: "Insufficient Balance",
+        description: "You do not have enough USDC inside your Smart Account.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setFundingUSDC(true);
+      // @ts-ignore
+      let provider = new ethers.BrowserProvider(window.ethereum);
+      let signer = await provider.getSigner();
+
+      // Check network and switch to Base Mainnet (8453) if needed
+      const network = await provider.getNetwork();
+      if (Number(network.chainId) !== 8453) {
+        toast({
+          title: "Switching Network",
+          description: "Please switch your wallet network to Base Mainnet...",
+        });
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x2105' }], // 8453 in hex
+          });
+          // Re-initialize provider and signer
+          provider = new ethers.BrowserProvider(window.ethereum);
+          signer = await provider.getSigner();
+        } catch (switchError: any) {
+          if (switchError.code === 4902) {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [
+                {
+                  chainId: '0x2105',
+                  chainName: 'Base',
+                  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+                  rpcUrls: ['https://mainnet.base.org'],
+                  blockExplorerUrls: ['https://basescan.org'],
+                },
+              ],
+            });
+            provider = new ethers.BrowserProvider(window.ethereum);
+            signer = await provider.getSigner();
+          } else {
+            throw switchError;
+          }
+        }
+      }
+
+      // Check if kernel smart wallet is deployed on-chain
+      const code = await provider.getCode(kernelAddress);
+      const isDeployed = code !== "0x" && code !== "0x00";
+
+      if (!isDeployed) {
+        toast({
+          title: "Deploying Your Smart Wallet",
+          description: "Your personal vault is being deployed on-chain for the first time...",
+        });
+
+        const factory = new ethers.Contract(
+          FACTORY_ADDRESS,
+          ["function createAccount(address owner) external returns (address)"],
+          signer
+        );
+
+        const deployTx = await factory.createAccount(address);
+        await deployTx.wait();
+
+        toast({
+          title: "Smart Wallet Deployed!",
+          description: "Your personal vault is now live. Proceeding with withdrawal...",
+        });
+      }
+
+      const kernelContract = new ethers.Contract(
+        kernelAddress,
+        [
+          "function approveToken(address token, address spender, uint256 amount) external",
+          "function owner() view returns (address)"
+        ],
+        signer
+      );
+
+      const owner = await kernelContract.owner();
+      if (owner.toLowerCase() !== address.toLowerCase()) {
+        toast({
+          title: "Ownership Error",
+          description: `Connected wallet is not the owner. Owner: ${owner.slice(0, 6)}...${owner.slice(-4)}`,
+          variant: "destructive",
+        });
+        setFundingUSDC(false);
+        return;
+      }
+
+      toast({
+        title: "Initiating Withdrawal",
+        description: "Step 1: Granting USDC allowance from your vault...",
+      });
+
+      const safeTruncateAmount = (val: string, dec: number) => {
+        if (!val || isNaN(Number(val))) return '0';
+        const parts = val.split('.');
+        if (parts.length > 1) return `${parts[0]}.${parts[1].slice(0, dec)}`;
+        return val;
+      };
+      const amountUnits = ethers.parseUnits(safeTruncateAmount(amountStr, 6), 6);
+      const overrides = await getTransactionOverrides(provider);
+      const tx1 = await kernelContract.approveToken(usdcAddress, address, amountUnits, overrides);
+      await tx1.wait();
+
+      toast({
+        title: "Allowance Granted",
+        description: "Step 2: Transferring USDC to your wallet...",
+      });
+
+      const usdcContract = new ethers.Contract(
+        usdcAddress,
+        ["function transferFrom(address from, address to, uint256 amount) public returns (bool)"],
+        signer
+      );
+
+      const tx2 = await usdcContract.transferFrom(kernelAddress, address, amountUnits, overrides);
+      await tx2.wait();
+
+      toast({
+        title: "Withdrawal Succeeded!",
+        description: `${amountStr} USDC transferred to your wallet.`,
+        variant: "success",
+      });
+
+      await fetchKernelBalance();
+    } catch (e: any) {
+      toast({
+        title: "Withdrawal Failed",
+        description: e.message || String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setFundingUSDC(false);
+    }
+  };
+
+  const executeSharedWithdraw = async (amountStr: string) => {
+    if (!address) return;
+    if (!amountStr || isNaN(Number(amountStr)) || Number(amountStr) <= 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid USDC amount.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const amountNum = Number(amountStr);
+    const balanceNum = Number(sharedKernelBalance);
+    if (amountNum > balanceNum) {
+      toast({
+        title: "Insufficient Balance",
+        description: "You do not have enough USDC inside the shared Kernel.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setFundingUSDC(true);
+      // @ts-ignore
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      
+      const kernelContract = new ethers.Contract(
+        sharedKernelAddress,
+        [
+          "function approveToken(address token, address spender, uint256 amount) external",
+          "function owner() view returns (address)"
+        ],
+        signer
+      );
+
+      const owner = await kernelContract.owner();
+      if (owner.toLowerCase() !== address.toLowerCase()) {
+        toast({
+          title: "Ownership Error",
+          description: `Connected wallet is not the owner of the shared Kernel contract.`,
+          variant: "destructive",
+        });
+        setFundingUSDC(false);
+        return;
+      }
+
+      toast({
+        title: "Initiating Shared Withdrawal",
+        description: "Step 1: Granting USDC allowance from Shared Kernel...",
+      });
+
+      const safeTruncateAmount = (val: string, dec: number) => {
+        if (!val || isNaN(Number(val))) return '0';
+        const parts = val.split('.');
+        if (parts.length > 1) return `${parts[0]}.${parts[1].slice(0, dec)}`;
+        return val;
+      };
+      const amountUnits = ethers.parseUnits(safeTruncateAmount(amountStr, 6), 6);
+      const overrides = await getTransactionOverrides(provider);
+      const tx1 = await kernelContract.approveToken(usdcAddress, address, amountUnits, overrides);
+      await tx1.wait();
+
+      toast({
+        title: "Allowance Granted",
+        description: "Step 2: Transferring USDC from Shared Kernel to your EOA...",
+      });
+
+      const usdcContract = new ethers.Contract(
+        usdcAddress,
+        ["function transferFrom(address from, address to, uint256 amount) public returns (bool)"],
+        signer
+      );
+
+      const tx2 = await usdcContract.transferFrom(sharedKernelAddress, address, amountUnits, overrides);
+      await tx2.wait();
+
+      toast({
+        title: "Shared Withdrawal Succeeded!",
+        description: `${amountStr} USDC returned to your Metamask wallet.`,
+        variant: "success",
+      });
+
+      await fetchKernelBalance();
+    } catch (e: any) {
+      toast({
+        title: "Withdrawal Failed",
+        description: e.message || String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setFundingUSDC(false);
+    }
+  };
+
+  const startAiAutomation = async () => {
+    setAiStep(1);
+    setAiStatus("Estimating execution gas limits...");
+    
+    setTimeout(() => {
+      setAiStep(2);
+      setAiStatus("Requesting Session Key signature via MetaMask...");
+      
+      setTimeout(async () => {
+        try {
+          // @ts-ignore
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const signer = await provider.getSigner();
+          
+          const message = `Authorize Brick3 AI Agent Session Key\nTarget Kernel: ${kernelAddress}\nLimit: $10,000.00 USDC\nExpires: 24h`;
+          await signer.signMessage(message);
+          
+          setAiStep(3);
+          setAiStatus("Authorizing Citadel execution corridor...");
+          
+          setTimeout(() => {
+            setAiStep(4);
+            setAiStatus("AI Automation Activated!");
+          }, 1500);
+        } catch (err) {
+          toast({
+            title: "Authorization Cancelled",
+            description: "Session Key signing cancelled by user.",
+            variant: "destructive",
+          });
+          setAiStep(0);
+          setAiStatus("");
+        }
+      }, 1500);
+    }, 1500);
+  };
+
+  useEffect(() => {
+    if (showAiModal) {
+      fetchKernelBalance();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAiModal]);
   const [intentText, setIntentText] = useState('');
   const [intentLoading, setIntentLoading] = useState(false);
   const [simModal, setSimModal] = useState<SimModalState>({ open: false, stage: 'running' });
@@ -448,10 +993,7 @@ export default function CanvasPage() {
       'RETURN FUNDS': [],
       'CONDITION': [],
       'LOOP': [],
-      'FT DEPOSIT': ['asset', 'amount'],
-      'FT USD MINT': ['asset', 'amount'],
-      'FT SWAP': ['from', 'to', 'amount'],
-      'FT STAKE': ['asset', 'amount'],
+      'SETTLEMENT': ['asset'],
     };
 
     blocks.forEach((b, idx) => {
@@ -486,7 +1028,12 @@ export default function CanvasPage() {
     try {
       if (!amount) return '0';
       const decimals = getDecimals(assetAddress);
-      return ethers.parseUnits(amount.toString(), decimals).toString();
+      let valStr = amount.toString();
+      if (valStr.includes('.')) {
+        const parts = valStr.split('.');
+        valStr = `${parts[0]}.${parts[1].slice(0, decimals)}`;
+      }
+      return ethers.parseUnits(valStr, decimals).toString();
     } catch (e) {
       return '0';
     }
@@ -545,45 +1092,20 @@ export default function CanvasPage() {
         }
       } else if (typeNormalized === 'claim' || typeNormalized === 'repay' || typeNormalized === 'return_funds') {
         params.recipient = b.recipient || '';
-      } else if (typeNormalized === 'ft_deposit') {
-        params.action = b.ftAction || 'deposit';
-        params.asset = TOKEN_ADDRESSES[b.asset || ''] || b.asset || '';
-        if (b.amountMode === 'dynamic') {
-          params.is_previous_output = true;
-          params.source_node_id = b.sourceNodeId || '';
-        } else {
-          params.amount = scaleAmount(b.amount, params.asset as string);
-        }
-        params.protocol = 'flying_tulip';
-      } else if (typeNormalized === 'ft_usd_mint') {
-        params.action = b.ftAction || 'mint';
-        params.asset = TOKEN_ADDRESSES[b.asset || ''] || b.asset || '';
-        if (b.amountMode === 'dynamic') {
-          params.is_previous_output = true;
-          params.source_node_id = b.sourceNodeId || '';
-        } else {
-          params.amount = scaleAmount(b.amount, params.asset as string);
-        }
-        params.protocol = 'flying_tulip';
-      } else if (typeNormalized === 'ft_swap') {
-        params.tokenIn = TOKEN_ADDRESSES[b.from || ''] || b.from || '';
-        params.tokenOut = TOKEN_ADDRESSES[b.to || ''] || b.to || '';
-        if (b.amountMode === 'dynamic') {
-          params.is_previous_output = true;
-          params.source_node_id = b.sourceNodeId || '';
-        } else {
-          params.amountIn = scaleAmount(b.amount, params.tokenIn as string);
-        }
-        params.orderType = b.ftOrderType || 'market';
-        params.dex = 'flying_tulip';
-      } else if (typeNormalized === 'ft_stake') {
-        params.asset = TOKEN_ADDRESSES[b.asset || ''] || b.asset || '';
-        if (b.amountMode === 'dynamic') {
-          params.is_previous_output = true;
-          params.source_node_id = b.sourceNodeId || '';
-        } else {
-          params.amount = scaleAmount(b.amount, params.asset as string);
-        }
+      } else if (typeNormalized === 'settlement') {
+        params.network = b.settlementNetwork || 'stellar';
+        params.asset = b.asset || 'USDC';
+        params.distribution = {
+          type: b.settlementDistType || 'TREASURY',
+          recipients: (b.settlementRecipients || []).map(r => ({
+            name: r.name,
+            address: r.address,
+            share: r.share,
+            asset: b.asset || 'USDC',
+            network: b.settlementNetwork || 'stellar',
+            memo: r.memo || '',
+          })),
+        };
       } else {
         // For other types, include all block properties
         params.provider = (b.provider || '').toLowerCase();
@@ -615,10 +1137,18 @@ export default function CanvasPage() {
       const params = action.params || {};
 
       if (type === 'FLASH_LOAN') {
-        // Provider can be string name or address
         let provider = params.provider?.toString() || currentContracts.AaveFlashAdapter;
-        if (provider === 'aave' || !provider.startsWith('0x')) {
-          provider = currentContracts.AaveFlashAdapter;
+        if (!provider.startsWith('0x')) {
+          const providerLower = provider.toLowerCase();
+          if (providerLower.includes('dydx')) {
+            provider = (currentContracts as any).DyDxFlashAdapter || currentContracts.AaveFlashAdapter;
+          } else if (providerLower.includes('balancer')) {
+            provider = (currentContracts as any).BalancerAdapter || currentContracts.AaveFlashAdapter;
+          } else if (providerLower.includes('morpho')) {
+            provider = (currentContracts as any).MorphoAdapter || currentContracts.AaveFlashAdapter;
+          } else {
+            provider = currentContracts.AaveFlashAdapter;
+          }
         }
         params.chain = params.chain || selectedChain;
         const asset = params.asset?.toString() || '0x0000000000000000000000000000000000000000';
@@ -635,8 +1165,19 @@ export default function CanvasPage() {
 
       if (type === 'SWAP') {
         let dex = params.dex?.toString() || currentContracts.UniV3Adapter;
-        if (dex === 'uniswap' || !dex.startsWith('0x')) {
-          dex = currentContracts.UniV3Adapter;
+        if (!dex.startsWith('0x')) {
+          const dexLower = dex.toLowerCase();
+          if (dexLower.includes('sushi')) {
+            dex = (currentContracts as any).SushiSwapAdapter || currentContracts.UniV3Adapter;
+          } else if (dexLower.includes('balancer')) {
+            dex = (currentContracts as any).BalancerAdapter || currentContracts.UniV3Adapter;
+          } else if (dexLower.includes('curve')) {
+            dex = (currentContracts as any).CurveAdapter || currentContracts.UniV3Adapter;
+          } else if (dexLower.includes('cow')) {
+            dex = (currentContracts as any).CowSwapAdapter || currentContracts.UniV3Adapter;
+          } else {
+            dex = currentContracts.UniV3Adapter;
+          }
         }
         params.chain = params.chain || selectedChain;
         const tokenIn = params.tokenIn?.toString() || '0x0000000000000000000000000000000000000000';
@@ -851,13 +1392,13 @@ export default function CanvasPage() {
         const asset = params.asset?.toString();
         if (asset && asset.startsWith('0x') && asset !== ethers.ZeroAddress) tokenSet.add(asset.toLowerCase());
       }
-      if (type === 'SWAP' || type === 'FT_SWAP') {
+      if (type === 'SWAP') {
         const tokenIn = params.tokenIn?.toString();
         const tokenOut = params.tokenOut?.toString();
         if (tokenIn && tokenIn.startsWith('0x') && tokenIn !== ethers.ZeroAddress) tokenSet.add(tokenIn.toLowerCase());
         if (tokenOut && tokenOut.startsWith('0x') && tokenOut !== ethers.ZeroAddress) tokenSet.add(tokenOut.toLowerCase());
       }
-      if (type === 'LEND' || type === 'BORROW' || type === 'FT_DEPOSIT' || type === 'FT_USD_MINT') {
+      if (type === 'LEND' || type === 'BORROW') {
         const asset = params.asset?.toString();
         if (asset && asset.startsWith('0x') && asset !== ethers.ZeroAddress) tokenSet.add(asset.toLowerCase());
       }
@@ -894,7 +1435,7 @@ export default function CanvasPage() {
       bridgeProvider: type === 'BRIDGE' ? 'standard' : undefined,
       provider: ['FLASH LOAN', 'LEND', 'BORROW'].includes(type) ? FLASH_PROVIDERS_BY_CHAIN[selectedChain]?.[0] || FLASH_PROVIDERS[0] : undefined,
       asset: ['FLASH LOAN', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'BRIDGE'].includes(type) ? TOKEN_OPTIONS[0] : undefined,
-      amount: ['FLASH LOAN', 'SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE'].includes(type) ? 1000 : undefined,
+      amount: undefined,
       from: type === 'SWAP' ? TOKEN_OPTIONS[0] : type === 'BRIDGE' ? CHAIN_OPTIONS[0] : undefined,
       to: type === 'SWAP' ? TOKEN_OPTIONS[3] : type === 'BRIDGE' ? CHAIN_OPTIONS[1] : undefined,
       dex: type === 'SWAP' ? (DEX_OPTIONS_BY_CHAIN[selectedChain]?.[0] || DEX_OPTIONS[0]) : undefined,
@@ -941,24 +1482,24 @@ export default function CanvasPage() {
     if (blocks.length >= 6) return false;
 
     if (blocks.length === 0) {
-      return type === 'FLASH LOAN' || type === 'BRIDGE' || type === 'SWAP' || type === 'FT DEPOSIT' || type === 'FT USD MINT' || type === 'FT SWAP';
+      return type === 'FLASH LOAN' || type === 'BRIDGE' || type === 'SWAP' || type === 'CLAIM';
     }
 
     if (type === 'FLASH LOAN') return false;
     if (type === 'CLAIM' || type === 'REPAY' || type === 'RETURN FUNDS') return blocks.length >= 1 && !hasRepay;
-    if (type === 'SWAP' || type === 'FT SWAP') {
-      const swapCount = blocks.filter((b) => b.type === 'SWAP' || b.type === 'FT SWAP').length;
+    if (type === 'SWAP') {
+      const swapCount = blocks.filter((b) => b.type === 'SWAP').length;
       return swapCount < 3;
     }
 
-    if (['BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'CONDITION', 'LOOP', 'FT DEPOSIT', 'FT USD MINT', 'FT STAKE'].includes(type)) {
+    if (['BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'CONDITION', 'LOOP',].includes(type)) {
       return count === 0;
     }
 
     return false;
   };
 
-  const addBlock = (type: BlockType) => {
+  const addBlock = (type: BlockType, initialData?: Partial<CanvasBlock>) => {
     if (!canAddModule(type)) return;
     const chain = selectedChain;
 
@@ -970,13 +1511,16 @@ export default function CanvasPage() {
       provider: ['FLASH LOAN', 'LEND', 'BORROW'].includes(t)
         ? FLASH_PROVIDERS_BY_CHAIN[chain]?.[0] || FLASH_PROVIDERS[0]
         : undefined,
-      asset: ['FLASH LOAN', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'BRIDGE', 'FT DEPOSIT', 'FT USD MINT', 'FT STAKE'].includes(t) ? TOKEN_OPTIONS[0] : undefined,
-      amount: ['FLASH LOAN', 'SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'FT DEPOSIT', 'FT USD MINT', 'FT STAKE'].includes(t) ? 1000 : undefined,
-      from: t === 'SWAP' ? TOKEN_OPTIONS[0] : t === 'BRIDGE' ? CHAIN_OPTIONS[0] : undefined,
-      to: t === 'SWAP' ? TOKEN_OPTIONS[3] : t === 'BRIDGE' ? CHAIN_OPTIONS[1] : undefined,
+      asset: ['FLASH LOAN', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'BRIDGE',].includes(t) ? TOKEN_OPTIONS[0] : undefined,
+      amount: undefined,
+      from: t === 'SWAP' ? TOKEN_OPTIONS[0] : t === 'BRIDGE' ? 'Ethereum' : undefined,
+      to: t === 'SWAP' ? TOKEN_OPTIONS[3] : t === 'BRIDGE' ? 'Base' : undefined,
       dex: t === 'SWAP' ? (DEX_OPTIONS_BY_CHAIN[chain]?.[0] || DEX_OPTIONS[0]) : undefined,
       recipient: (t === 'CLAIM' || t === 'REPAY' || t === 'RETURN FUNDS') ? 'My Wallet' : undefined,
-      position: { x: 0, y: 150 }
+      position: { x: 0, y: 150 },
+      expression: t === 'CONDITION' ? 'true' : undefined,
+      maxIterations: t === 'LOOP' ? 5 : undefined,
+      ...initialData
     });
 
     setBlocks((prev) => {
@@ -1051,7 +1595,7 @@ export default function CanvasPage() {
 
   const simulate = async () => {
     if (blocks.length === 0) {
-      setTxError('Simulate icin once en az bir blok ekleyin.');
+      setTxError('Please add at least one block before simulating.');
       setSimStatus('error');
       return;
     }
@@ -1102,6 +1646,7 @@ export default function CanvasPage() {
         estimatedGas: Number(sim?.estimatedGas ?? sim?.estimated_gas ?? 250000),
         failingNode: sim?.failingNode || null,
         revertReason: sim?.revertReason || null,
+        settlement: res?.settlement || null,
       };
       
       setSimResult(newSimResult);
@@ -1126,7 +1671,7 @@ export default function CanvasPage() {
         let displayReason = newSimResult.revertReason || 'Revert';
         const reasonLower = displayReason.toLowerCase();
         if (reasonLower.includes('not found') || reasonLower.includes('stf') || reasonLower.includes('safetransferfailed')) {
-          displayReason = 'Seçtiğiniz havuzda yeterli likidite bulunamadı veya havuz adresi geçersiz. Lütfen girdiğiniz miktarları veya rota adımlarını kontrol edin.';
+          displayReason = 'Insufficient liquidity in the selected pool or invalid pool address. Please check your input amounts and routing steps.';
         }
         setTxError(`Simulation failed at step [${newSimResult.failingNode || 'EVM'}]: ${displayReason}`);
         setSimStatus('error');
@@ -1286,7 +1831,18 @@ const compiled = (await api.compileStrategy(
       return;
     }
 
-    const actions = buildOnchainActions(strategy);
+     // Intercept if strategy contains ONLY a CLAIM block
+     const isClaimOnly = blocks.length === 1 && blocks[0].type === 'CLAIM';
+     if (isClaimOnly) {
+       if (parseFloat(kernelBalance) <= 0) {
+         setTxError('No USDC balance available in your Opacus Smart Account to claim.');
+         return;
+       }
+       openWithdrawModal();
+       return;
+     }
+
+     const actions = buildOnchainActions(strategy);
     
     console.log('🔧 Built actions:', actions);
     console.log('🔧 Actions length:', actions.length);
@@ -1297,7 +1853,7 @@ const compiled = (await api.compileStrategy(
       return;
     }
 
-    let strategyHash = (strategy?.strategyHash as string) || generateStrategyHash();
+    let strategyHash = generateStrategyHash();
     if (!strategyHash.startsWith('0x')) {
       strategyHash = `0x${strategyHash}`;
     }
@@ -1376,7 +1932,12 @@ const compiled = (await api.compileStrategy(
         strategyRegistryAbi,
         signer
       );
-      const creator: string = await registry.getCreator(strategyHash);
+      let creator = ethers.ZeroAddress;
+      try {
+        creator = await registry.getCreator(strategyHash);
+      } catch (e) {
+        console.log('Strategy not registered yet on-chain.');
+      }
       const alreadyRegistered = creator !== ethers.ZeroAddress;
       if (alreadyRegistered) {
         console.log('✅ Strategy already registered, skipping TX1.');
@@ -1423,12 +1984,24 @@ const compiled = (await api.compileStrategy(
       );
       
       console.log('🚀 Sending executeStrategy transaction...');
-        // Disable automatic estimateGas by setting a fixed gasLimit so MetaMask still pops up!
-        const tx = await bandle.executeStrategy(actions, minProfitWei, deadline, strategyHash, sweepTokens, {
-          gasLimit: 3000000
-        });
-      
-      const receipt = await tx.wait();
+        const overrides = await getTransactionOverrides(provider);
+        
+        let estimatedGasLimit = BigInt(1000000);
+        try {
+          const estimated = await bandle.executeStrategy.estimateGas(actions, minProfitWei, deadline, strategyHash, sweepTokens, overrides);
+          // Add 20% safety buffer
+          estimatedGasLimit = (estimated * BigInt(120)) / BigInt(100);
+          console.log('⛽ Estimated dynamic gasLimit:', estimatedGasLimit.toString());
+        } catch (estErr) {
+          console.warn('⛽ estimateGas failed, using fallback scaled limit:', estErr);
+          // Fallback: 350,000 gas per action, capped at 2,000,000 max fallback
+          const calculated = BigInt(350000) * BigInt(actions.length || 1);
+          estimatedGasLimit = calculated > BigInt(2000000) ? BigInt(2000000) : calculated;
+        }
+
+        overrides.gasLimit = estimatedGasLimit;
+        const tx = await bandle.executeStrategy(actions, minProfitWei, deadline, strategyHash, sweepTokens, overrides);
+        const receipt = await tx.wait();
       console.log('✅ Transaction confirmed:', receipt);
       setTxError(null);
       sessionStorage.removeItem('brick3_compiled_strategy');
@@ -1451,43 +2024,8 @@ const compiled = (await api.compileStrategy(
 
   return (
     <div className="h-full bg-[#0A0505] text-white flex flex-col">
-      <div className="grid grid-cols-[200px_1fr] flex-1 min-h-0">
-
-        {/* Left: Module Library */}
-        <aside className="border-r border-white/10 p-3 space-y-2 overflow-y-auto">
-          <p className="text-[11px] uppercase tracking-wider text-white/40 mb-3">Modules</p>
-          {MODULES.map((m) => (
-            <div
-              key={m}
-              draggable={canAddModule(m)}
-              onDragStart={() => setDragging(m)}
-              onClick={() => addBlock(m)}
-              className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm flex items-center justify-between transition-colors ${
-                canAddModule(m)
-                  ? 'border-white/10 bg-white/5 hover:bg-white/10 cursor-pointer'
-                  : 'border-white/5 bg-white/[0.02] text-white/25 cursor-not-allowed'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <span>{m}</span>
-              </div>
-              <button
-                type="button"
-                className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/10 text-white/40 hover:text-white transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setTutorialModal(m);
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                  <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-              </button>
-            </div>
-          ))}
-        </aside>
+      <div className="flex flex-1 min-h-0">
+        {/* Removed left sidebar as per request */}
 
         {/* Center: Canvas */}
         <main
@@ -1534,10 +2072,15 @@ const compiled = (await api.compileStrategy(
 
           <div className="w-full h-full bg-[#0F121A]">
             {blocks.length === 0 ? (
-              <div className="w-full h-full flex flex-col items-center justify-center text-center gap-2">
-                <span className="material-symbols-outlined text-white/25" style={{ fontSize: '32px' }}>add_circle</span>
-                <p className="text-white/40 text-sm">Click or drag modules to add steps</p>
-                <p className="text-white/25 text-xs">No funds at risk until you execute</p>
+              <div className="w-full h-full flex flex-col items-center justify-center text-center gap-4">
+                <button
+                  onClick={() => setIsStorefrontOpen(true)}
+                  className="group relative flex flex-col items-center justify-center w-48 h-32 rounded-2xl bg-gradient-to-b from-[#1A1F2B] to-[#11151F] border border-white/10 shadow-xl transition-all hover:border-[#00D1C7]/50 hover:shadow-[0_0_30px_rgba(0,209,199,0.2)] hover:-translate-y-1"
+                >
+                  <span className="material-symbols-outlined text-[#00D1C7] text-3xl mb-2 group-hover:scale-110 transition-transform">storefront</span>
+                  <span className="font-bold tracking-wide text-white/90 text-sm">Storefront</span>
+                  <span className="text-[10px] text-white/40 mt-1 uppercase tracking-widest">Add First Brick</span>
+                </button>
               </div>
             ) : (
               <ReactFlow 
@@ -1551,12 +2094,27 @@ const compiled = (await api.compileStrategy(
                 <Controls className="!bg-[#11151F] !border-white/10 !text-white [&>button]:!border-b-white/10" />
               </ReactFlow>
             )}
+            
+
+
           </div>
         </main>
       </div>
 
       {/* Action Bar */}
-      <div className="h-[68px] border-t border-white/10 bg-[#0B0D12] px-6 flex items-center justify-end gap-3">
+      <div className="h-[68px] border-t border-white/10 bg-[#0B0D12] px-6 flex items-center justify-between">
+        <div>
+          {blocks.length > 0 && (
+            <button
+              onClick={() => setIsStorefrontOpen(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border-t border-l border-r border-[#00D1C7]/15 border-b-[4px] border-b-[#00D1C7]/30 bg-[#070B14]/95 text-white hover:border-b-[5px] hover:border-[#00D1C7]/40 hover:shadow-[0_0_20px_rgba(0,209,199,0.15)] transition-all active:translate-y-[1px] active:border-b-[2px]"
+            >
+              <span className="material-symbols-outlined text-[#00D1C7] text-[18px]">storefront</span>
+              <span className="font-bold text-xs tracking-wider uppercase text-white/95">Add Brick</span>
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -1578,6 +2136,18 @@ const compiled = (await api.compileStrategy(
         >
           Save
         </motion.button>
+        {/*
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => setShowAiModal(true)}
+          disabled={blocks.length === 0 || !!validationError}
+          className="px-5 py-2 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 text-white text-sm font-semibold hover:from-red-600 hover:to-orange-600 disabled:opacity-40 transition-colors shadow-[0_0_15px_rgba(239,68,68,0.3)] flex items-center gap-1.5"
+        >
+          <span className="material-symbols-outlined text-[18px]">psychology</span>
+          Automate with AI
+        </motion.button>
+        */}
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -1590,6 +2160,7 @@ const compiled = (await api.compileStrategy(
           )}
           <span className="relative z-10">{compiling ? 'Compiling…' : 'Execute'}</span>
         </motion.button>
+        </div>
       </div>
 
       {(validationError || txError) && !showExecuteModal && (
@@ -1630,10 +2201,45 @@ const compiled = (await api.compileStrategy(
               <>
                 <h3 className="text-xl font-semibold text-white">Simulation Complete</h3>
                 <div className="mt-4 space-y-2 text-sm">
-                  <p className="text-white/70">Estimated Net: <span className="text-red-500">+{displayProfit.toFixed(2)} {displayProfitToken}</span> <span className="text-white/40 text-xs">(${displayProfitUsd.toFixed(2)})</span></p>
+                  <p className="text-white/70">Estimated Net: <span className={displayProfit >= 0 ? "text-green-500" : "text-red-500"}>{displayProfit >= 0 ? "+" : ""}{displayProfit.toFixed(2)} {displayProfitToken}</span> <span className="text-white/40 text-xs">(${displayProfitUsd.toFixed(2)})</span></p>
                   <p className="text-white/70">Execution Risk: <span className="text-white">{displayConfidence >= 70 ? 'Low' : displayConfidence >= 50 ? 'Medium' : 'High'}</span></p>
                   <p className="text-white/70">Protected Route: <span className="text-white">Enabled</span></p>
                 </div>
+                {/* Settlement Report */}
+                {simResult?.settlement && (
+                  <div className="mt-4 rounded-xl border border-[#A7F432]/20 bg-[#A7F432]/5 p-4 space-y-2">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-[#A7F432] text-base">⬇</span>
+                      <h4 className="text-sm font-semibold text-[#A7F432]">Settlement Distribution</h4>
+                      <span className="text-[9px] font-mono bg-[#A7F432]/10 text-[#A7F432] px-2 py-0.5 rounded-full uppercase">{(simResult.settlement as any).network}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5 text-xs">
+                      <div className="flex justify-between"><span className="text-white/50">Asset</span><span className="text-white">{(simResult.settlement as any).asset}</span></div>
+                      <div className="flex justify-between"><span className="text-white/50">Recipients</span><span className="text-white">{(simResult.settlement as any).recipientsCount}</span></div>
+                      <div className="flex justify-between"><span className="text-white/50">Type</span><span className="text-white">{(simResult.settlement as any).distributionType}</span></div>
+                      <div className="flex justify-between"><span className="text-white/50">Fee</span><span className="text-white">{(simResult.settlement as any).estimatedFee} {(simResult.settlement as any).estimatedFeeAsset}</span></div>
+                      <div className="flex justify-between"><span className="text-white/50">Time</span><span className="text-white">~{(simResult.settlement as any).estimatedTimeSeconds}s</span></div>
+                      <div className="flex justify-between"><span className="text-white/50">Total</span><span className="text-[#A7F432]">{Number((simResult.settlement as any).totalDistributed).toFixed(2)} {(simResult.settlement as any).asset}</span></div>
+                    </div>
+                    {(simResult.settlement as any).distribution?.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {(simResult.settlement as any).distribution.map((line: any, li: number) => (
+                          <div key={li} className="flex items-center justify-between text-[10px] py-1 border-t border-white/5">
+                            <span className="text-white/70">{line.name || `Recipient ${li+1}`}</span>
+                            <span className="text-white/50 font-mono truncate max-w-[100px]" title={line.address}>{line.address ? `${line.address.slice(0,6)}...${line.address.slice(-4)}` : '-'}</span>
+                            <span className="text-white">{line.share}%</span>
+                            <span className="text-[#A7F432]">{Number(line.amount).toFixed(2)} {line.asset}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {(simResult.settlement as any).status === 'INVALID' && (
+                      <div className="mt-2 text-[10px] text-red-400">
+                        {(simResult.settlement as any).validationErrors?.join('; ')}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="mt-5 flex justify-end gap-2">
                   <button onClick={handleExecute} className="px-4 py-2 rounded-xl bg-white text-black text-sm font-medium">Execute</button>
                   <button onClick={() => setSimModal({ open: false, stage: 'done' })} className="px-4 py-2 rounded-xl border border-white/15 text-white/85 text-sm">Edit Strategy</button>
@@ -1693,7 +2299,7 @@ const compiled = (await api.compileStrategy(
                   </div>
                   <div className="flex justify-between">
                     <span className="text-white/55">Est. Profit</span>
-                    <span className="text-red-500">+{displayProfit.toFixed(2)} {formatTokenName(displayProfitToken)}</span>
+                    <span className={displayProfit >= 0 ? "text-green-500" : "text-red-500"}>{displayProfit >= 0 ? "+" : ""}{displayProfit.toFixed(2)} {formatTokenName(displayProfitToken)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-white/55">Gas</span>
@@ -1774,6 +2380,65 @@ const compiled = (await api.compileStrategy(
         </div>
       )}
 
+
+
+      {/* Storefront Brick Menu Overlay */}
+      {isStorefrontOpen && (
+        <div className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setIsStorefrontOpen(false)}>
+          <div className="bg-[#0A0505] border border-white/10 rounded-3xl w-full max-w-4xl max-h-[80vh] overflow-y-auto custom-scrollbar p-8 shadow-[0_0_80px_rgba(0,0,0,0.8)]" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-[#00D1C7] text-3xl">storefront</span>
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight text-white">Storefront</h2>
+                  <p className="text-sm text-white/40 mt-1">Select a module brick to add to your canvas</p>
+                </div>
+              </div>
+              <button onClick={() => setIsStorefrontOpen(false)} className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {PROTOCOL_CATEGORIES.map(category => (
+                <div key={category.name} className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    {category.logo ? (
+                      <img src={category.logo} alt={category.name} className="w-6 h-6 rounded-full border border-white/10" />
+                    ) : (
+                      <div className="w-6 h-6 rounded-md border border-white/20 flex items-center justify-center bg-white/5">
+                        <span className="material-symbols-outlined text-[14px] text-[#00D1C7]">widgets</span>
+                      </div>
+                    )}
+                    <span className="font-semibold text-white/90">{category.name}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-3">
+                    {category.actions.map(action => (
+                      <button
+                        key={action.label}
+                        onClick={() => {
+                          addBlock(action.type as BlockType, action.defaultParams);
+                          setIsStorefrontOpen(false);
+                        }}
+                        className="text-left group relative bg-gradient-to-br from-[#1A1F2B] to-[#11151F] border border-white/10 rounded-xl p-4 hover:border-[#00D1C7]/50 hover:shadow-[0_0_20px_rgba(0,209,199,0.15)] transition-all overflow-hidden"
+                      >
+                        <div className="absolute top-0 left-0 w-1 h-full bg-[#00D1C7]/50 group-hover:bg-[#00D1C7] transition-colors" />
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-white/80 group-hover:text-white text-sm">{action.label}</span>
+                          <span className="material-symbols-outlined text-white/20 group-hover:text-[#00D1C7] transition-colors text-sm">add_circle</span>
+                        </div>
+                        <div className="text-[10px] uppercase tracking-wider text-white/30 mt-2 font-mono">{action.type}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tutorial Modal */}
       {tutorialModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
@@ -1805,6 +2470,287 @@ const compiled = (await api.compileStrategy(
           </div>
         </div>
       )}
+      {/* AI Automation Modal */}
+      {showAiModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-[#11151F] border border-white/10 rounded-2xl shadow-2xl p-6 relative overflow-hidden">
+            
+            <button
+              onClick={() => {
+                setShowAiModal(false);
+                setAiStep(0);
+                setAiStatus("");
+              }}
+              className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+
+            {aiStep === 0 && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                    <span className="material-symbols-outlined text-red-400">psychology</span>
+                    AI Auto-Pilot Setup
+                  </h3>
+                  <p className="text-xs text-white/50 mt-1">Configure execution parameters for automated AI bot triggering.</p>
+                </div>
+
+                {/* Step 1: Choose Package */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-white/60 uppercase tracking-wider">Select AI Automation Tier</label>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {[
+                      { name: 'Bronze', desc: '$10k Limit' },
+                      { name: 'Silver', desc: '$100k Limit' },
+                      { name: 'Gold', desc: 'Unlimited' },
+                      { name: 'Monad Alpha', desc: '0% Fees' }
+                    ].map((pkg) => (
+                      <button
+                        key={pkg.name}
+                        onClick={() => setAiPackage(pkg.name)}
+                        className={`text-left p-3 rounded-xl border transition-all flex flex-col justify-between h-16 ${
+                          aiPackage === pkg.name
+                            ? 'border-white bg-white/10 text-white'
+                            : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.04] text-white/70'
+                        }`}
+                      >
+                        <span className="font-semibold text-xs">{pkg.name}</span>
+                        <span className="text-[10px] opacity-75">{pkg.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* Step 2: Buffer check */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-white/60 uppercase tracking-wider">Gas & Slippage Buffer</label>
+                    <span className="text-[10px] text-white/40">USDC required in Kernel</span>
+                  </div>
+
+
+                  <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3.5 flex items-center justify-between">
+                    <div>
+                      <div className="text-[10px] text-white/40">Kernel Wallet Address</div>
+                      <div className="text-xs font-mono text-white/80 mt-0.5 select-all">{kernelAddress}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[10px] text-white/40">USDC Balance</div>
+                      <div className="text-sm font-bold text-[#00D1C7] mt-0.5">{parseFloat(kernelBalance).toFixed(4)} USDC</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-white/40 mt-1 px-1">
+                    <span>Needs at least ~0.05 USDC</span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={openDepositModal}
+                        disabled={fundingUSDC}
+                        className="text-white hover:text-[#00D1C7] flex items-center gap-1 font-semibold transition-colors disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">add_circle</span>
+                        Fund
+                      </button>
+                      <button
+                        onClick={openWithdrawModal}
+                        disabled={fundingUSDC || parseFloat(kernelBalance) <= 0}
+                        className="text-white hover:text-[#00D1C7] flex items-center gap-1 font-semibold transition-colors disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">account_balance_wallet</span>
+                        Withdraw
+                      </button>
+                    </div>
+                  </div>
+
+                  {isSharedKernelOwner && parseFloat(sharedKernelBalance) > 0 && (
+                    <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
+                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-yellow-500 uppercase tracking-wider">
+                        <span className="material-symbols-outlined text-[14px]">warning</span>
+                        Shared Vault Funds Detected
+                      </div>
+                      <div className="bg-yellow-500/5 border border-yellow-500/10 rounded-xl p-3 space-y-2.5">
+                        <div className="flex items-center justify-between text-[10px] text-white/50">
+                          <span>Recoverable:</span>
+                          <span className="font-bold text-yellow-500 font-mono">{parseFloat(sharedKernelBalance).toFixed(4)} USDC</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setFundType('shared_withdraw');
+                            setFundAmount(sharedKernelBalance);
+                            setShowFundModal(true);
+                          }}
+                          className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-semibold rounded-lg py-1.5 transition-colors text-[10px] flex items-center justify-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">publish</span>
+                          Recover from Shared Address
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {/* Action button */}
+                <button
+                  onClick={startAiAutomation}
+                  className="w-full bg-gradient-to-r from-red-500 to-orange-500 text-white font-semibold rounded-xl py-3 shadow-[0_0_15px_rgba(239,68,68,0.2)] hover:from-red-600 hover:to-orange-600 transition-all flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-[18px]">bolt</span>
+                  Activate Auto-Pilot Execution
+                </button>
+              </div>
+            )}
+
+            {aiStep > 0 && aiStep < 4 && (
+              <div className="py-8 flex flex-col items-center justify-center text-center space-y-6">
+                <div className="relative w-16 h-16 flex items-center justify-center">
+                  <div className="absolute inset-0 border-4 border-red-500/10 rounded-full" />
+                  <div className="absolute inset-0 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="material-symbols-outlined text-red-400 text-3xl">psychology</span>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-lg text-white">Delegating Execution Strategy</h4>
+                  <p className="text-sm text-white/50 mt-1">{aiStatus}</p>
+                </div>
+                <div className="w-full max-w-xs flex gap-2">
+                  {[1, 2, 3].map((step) => (
+                    <div
+                      key={step}
+                      className={`h-1.5 flex-1 rounded-full ${
+                        step <= aiStep ? 'bg-red-500 animate-pulse' : 'bg-white/10'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {aiStep === 4 && (
+              <div className="py-6 flex flex-col items-center justify-center text-center space-y-6">
+                <div className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center text-green-400">
+                  <span className="material-symbols-outlined text-4xl">check_circle</span>
+                </div>
+                <div>
+                  <h4 className="font-bold text-xl text-white">AI Pilot Successfully Activated</h4>
+                  <p className="text-sm text-white/50 mt-2 max-w-sm mx-auto leading-relaxed">
+                    Decentralized AI agents are now monitoring execution variables. The strategy will be triggered automatically as parameters align.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowAiModal(false);
+                    setAiStep(0);
+                    setAiStatus("");
+                  }}
+                  className="w-full bg-white text-black font-semibold rounded-xl py-3 hover:bg-white/90 transition-colors"
+                >
+                  Close & Monitor
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Custom Fund Modal */}
+      <AnimatePresence>
+        {showFundModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowFundModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-[#0D1017] border border-white/10 rounded-2xl p-6 shadow-2xl overflow-hidden"
+            >
+              {/* Decorative gradient overlay */}
+              <div className="absolute -top-32 -left-32 w-64 h-64 bg-[#00D1C7]/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-32 -right-32 w-64 h-64 bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
+
+
+              <div className="relative text-left">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2 mb-2">
+                  <span className="material-symbols-outlined text-[#00D1C7]">
+                    {fundType === 'deposit' ? 'add_circle' : 'account_balance_wallet'}
+                  </span>
+                  {fundType === 'deposit' ? 'Deposit USDC' : fundType === 'shared_withdraw' ? 'Recover USDC' : 'Withdraw USDC'}
+                </h3>
+                <p className="text-sm text-white/60 mb-6">
+                  {fundType === 'deposit' 
+                    ? 'Transfer USDC from your main Metamask wallet to your smart execution account.'
+                    : fundType === 'shared_withdraw'
+                    ? 'Reclaim USDC from the shared Kernel contract directly back to your main wallet.'
+                    : 'Withdraw USDC from your smart execution account back to your main wallet.'}
+                </p>
+
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-white/40 mb-2">
+                      USDC Amount
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="0.00"
+                        value={fundAmount}
+                        onChange={(e) => setFundAmount(e.target.value)}
+                        className="w-full bg-[#141822] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-[#00D1C7] transition-colors font-medium text-lg pr-16"
+                        autoFocus
+                      />
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-white/40">
+                        USDC
+                      </div>
+                    </div>
+                    {(fundType === 'withdraw' || fundType === 'shared_withdraw') && (
+                      <div className="flex justify-between items-center mt-2 text-xs text-white/50">
+                        <span>Available Balance: {parseFloat(fundType === 'shared_withdraw' ? sharedKernelBalance : kernelBalance).toFixed(4)} USDC</span>
+                        <button 
+                          onClick={() => setFundAmount(fundType === 'shared_withdraw' ? sharedKernelBalance : kernelBalance)}
+                          className="text-[#00D1C7] hover:underline font-semibold"
+                        >
+                          Max
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowFundModal(false)}
+                    className="flex-1 bg-white/5 hover:bg-white/10 text-white font-semibold rounded-xl py-3 transition-colors border border-white/10 text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setShowFundModal(false);
+                      if (fundType === 'deposit') {
+                        await executeDeposit(fundAmount);
+                      } else if (fundType === 'withdraw') {
+                        await executeWithdraw(fundAmount);
+                      } else if (fundType === 'shared_withdraw') {
+                        await executeSharedWithdraw(fundAmount);
+                      }
+                    }}
+                    className="flex-1 bg-white text-black font-semibold rounded-xl py-3 hover:bg-white/90 transition-colors text-sm flex items-center justify-center gap-1.5"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

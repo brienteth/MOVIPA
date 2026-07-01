@@ -143,9 +143,10 @@ export default function DashboardPage() {
     { x: 150, y: 270, label: 'INT', color: '#00e5ff', r: 12 },
     { x: 450, y: 270, label: 'RPC', color: '#2BD9FF', r: 12 },
     { x: 300, y: 330, label: 'H3-2', color: '#1EF0A6', r: 12 },
+    { x: 300, y: 70, label: 'STL', color: '#FFF176', r: 12 },
   ];
 
-  const edges = [[0,1],[0,2],[0,3],[0,4],[0,5],[1,3],[2,4]];
+  const edges = [[0,1],[0,2],[0,3],[0,4],[0,5],[1,3],[2,4],[0,6]];
 
   const getStatusColor = (status: string) => {
     if (!status) return 'text-on-surface-variant';

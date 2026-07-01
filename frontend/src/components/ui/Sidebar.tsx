@@ -1,12 +1,9 @@
 import React from 'react';
 import { AppView } from '../../store/ui.store';
 
-const mainItems: Array<{ key: AppView; label: string }> = [
-  { key: 'canvas', label: 'Canvas' },
-  { key: 'monitor', label: 'Monitor' },
-  { key: 'strategies', label: 'Marketplace' },
-  { key: 'vaults', label: 'Vaults' },
-  { key: 'portfolio', label: 'Portfolio (P&L)' },
+const mainItems: Array<{ key: AppView; label: string; icon: string }> = [
+  { key: 'canvas', label: 'Workspace', icon: 'dashboard_customize' },
+  { key: 'portfolio', label: 'Portfolio', icon: 'account_balance_wallet' },
 ];
 
 export default function Sidebar({
@@ -36,10 +33,11 @@ export default function Sidebar({
               onClick={() => onChange(item.key)}
               className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all ${
                 isActive
-                  ? 'bg-white text-black'
-                  : 'text-white/70 hover:text-white hover:bg-white/5'
+                  ? 'bg-[#00D1C7]/10 text-[#00D1C7] font-semibold border border-[#00D1C7]/20'
+                  : 'text-white/70 hover:text-white hover:bg-white/5 border border-transparent'
               }`}
             >
+              <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
               <span>{item.label}</span>
             </button>
           );
@@ -50,17 +48,19 @@ export default function Sidebar({
         <button
           onClick={() => onChange('docs')}
           className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all ${
-            current === 'docs' ? 'bg-white text-black' : 'text-white/70 hover:text-white hover:bg-white/5'
+            current === 'docs' ? 'bg-[#00D1C7]/10 text-[#00D1C7]' : 'text-white/70 hover:text-white hover:bg-white/5'
           }`}
         >
+          <span className="material-symbols-outlined text-[20px]">menu_book</span>
           <span>Documentation</span>
         </button>
         <button
           onClick={() => onChange('settings')}
           className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all ${
-            current === 'settings' ? 'bg-white text-black' : 'text-white/70 hover:text-white hover:bg-white/5'
+            current === 'settings' ? 'bg-[#00D1C7]/10 text-[#00D1C7]' : 'text-white/70 hover:text-white hover:bg-white/5'
           }`}
         >
+          <span className="material-symbols-outlined text-[20px]">settings</span>
           <span>Settings</span>
         </button>
       </div>

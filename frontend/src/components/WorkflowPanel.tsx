@@ -10,9 +10,6 @@ const WorkflowPanel: React.FC = () => {
     { type: 'bridge', label: 'Cross-Chain Bridge', protocol: 'Across', icon: '🌉', category: 'Bridge' },
     { type: 'stake', label: 'Stake', protocol: 'Lido', icon: '🏦', category: 'Staking' },
     { type: 'yield', label: 'Yield Farm', protocol: 'Curve', icon: '🌾', category: 'Yield' },
-    { type: 'ft_deposit', label: 'FT Deposit / Margin', protocol: 'Flying Tulip', icon: '🌷', category: 'Flying Tulip' },
-    { type: 'ft_usd_mint', label: 'FT ftUSD Mint/Burn', protocol: 'Flying Tulip', icon: '🪙', category: 'Flying Tulip' },
-    { type: 'ft_swap', label: 'FT Swap', protocol: 'Flying Tulip', icon: '🔀', category: 'Flying Tulip' },
   ];
 
   const categories = [...new Set(availableNodes.map(node => node.category))];
