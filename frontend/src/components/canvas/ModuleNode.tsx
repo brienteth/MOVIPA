@@ -111,12 +111,13 @@ interface ModuleNodeProps {
     onUpdate: (id: string, updates: Partial<CanvasBlock>) => void;
     onRemove: (id: string) => void;
     onExecuteBridge?: (block: CanvasBlock) => void;
+    onTutorialClick?: (type: BlockType) => void;
     previousBlocks?: CanvasBlock[];
   };
 }
 
 const ModuleNode = ({ id, data }: ModuleNodeProps) => {
-  const { block, index, selectedChain, onUpdate, onRemove, onExecuteBridge, previousBlocks = [] } = data;
+  const { block, index, selectedChain, onUpdate, onRemove, onExecuteBridge, onTutorialClick, previousBlocks = [] } = data;
   const b = block;
 
   const renderAmountField = () => {
@@ -201,6 +202,16 @@ const ModuleNode = ({ id, data }: ModuleNodeProps) => {
         <div className="flex items-center gap-2">
           <div className="w-5 h-5 rounded flex items-center justify-center bg-[#00D1C7]/10 text-[10px] font-mono text-[#00D1C7] border border-[#00D1C7]/20">{index + 1}</div>
           <h4 className="text-[13px] font-semibold tracking-wider text-[#D7DFE9]">{b.type}</h4>
+          {onTutorialClick && (
+            <button
+              type="button"
+              onClick={() => onTutorialClick(b.type)}
+              className="w-4.5 h-4.5 rounded-full flex items-center justify-center bg-[#00D1C7]/10 text-[10px] font-bold text-[#00D1C7] hover:bg-[#00D1C7]/20 border border-[#00D1C7]/15 transition-all cursor-pointer"
+              title="Learn how this block works"
+            >
+              ?
+            </button>
+          )}
         </div>
         <button onClick={() => onRemove(id)} className="text-white/30 hover:text-red-400 transition-colors">✕</button>
       </div>

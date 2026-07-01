@@ -20,19 +20,58 @@ declare global {
 }
 
 const TUTORIAL_CONTENT: Record<BlockType, { title: string; desc: string }> = {
-  'FLASH LOAN': { title: 'Flash Loan', desc: 'Borrow uncollateralized funds for a single transaction. You must return the funds + fee within the same block.' },
-  'SWAP': { title: 'Swap', desc: 'Exchange one token for another using the best available Decentralized Exchange (DEX).' },
-  'BRIDGE': { title: 'Bridge', desc: 'Transfer assets seamlessly between different blockchains.' },
-  'LEND': { title: 'Lend', desc: 'Supply assets to lending protocols (like Aave or Morpho) to earn interest.' },
-  'BORROW': { title: 'Borrow', desc: 'Borrow assets against your deposited collateral.' },
-  'STAKE': { title: 'Stake', desc: 'Deposit tokens (e.g., ETH) to receive Liquid Staking Tokens (like stETH) and earn staking rewards.' },
-  'YIELD': { title: 'Yield', desc: 'Deposit assets into yield aggregators to maximize your passive returns.' },
-  'REPAY': { title: 'Repay', desc: 'Pay back your borrowed debt.' },
-  'RETURN FUNDS': { title: 'Return Funds', desc: 'Return flash loaned funds back to the flash loan provider.' },
-  'CLAIM': { title: 'Claim', desc: 'Claim accrued rewards from lending, staking, or farming.' },
-  'CONDITION': { title: 'Condition', desc: 'Execute logic only if specific market conditions (prices, rates) are met.' },
-  'LOOP': { title: 'Loop', desc: 'Repeat a set of actions recursively (e.g., recursive borrowing for leverage).' },
-  'SETTLEMENT': { title: 'Settlement', desc: 'Distribute final strategy yields/profits to multiple destinations (e.g., Stellar or EVM networks).' },
+  'FLASH LOAN': {
+    title: 'Flash Loan ⚡',
+    desc: 'Allows you to borrow millions in capital from deep liquidity pools (Aave, Spark, Balancer) without putting up any collateral, provided that the borrowed amount + a small fee (typically 0.05% - 0.09%) is repaid within the exact same block execution corridor. Must be repaid using the REPAY/RETURN FUNDS block at the end of the strategy, otherwise the entire strategy will fail and revert.'
+  },
+  'SWAP': {
+    title: 'Token Swap 🔀',
+    desc: 'Exchanges one asset for another (e.g. USDC to ETH) using decentralized exchange aggregators (Uniswap V3, Curve, Balancer, SushiSwap). The router automatically splits and selects the most efficient liquidity routing path to minimize price impact and slippage, maximizing the final output token amount.'
+  },
+  'BRIDGE': {
+    title: 'Cross-Chain Bridge 🌉',
+    desc: 'Moves your assets across different network environments (Ethereum, Base, Arbitrum, Optimism, Polygon) using the Stargate V2 bridge relayer. Bridging takes 1-3 minutes and is protected by simulation checks. This allows you to borrow capital on a chain with cheap borrow rates and deploy it on a chain with higher yield opportunities.'
+  },
+  'LEND': {
+    title: 'Supply / Lend 🏦',
+    desc: 'Deposits your assets into lending protocols (Aave V3, Compound V3, Moonwell, Morpho) to earn continuously compounding variable interest rates. Supplied assets also serve as collateral enabling you to borrow other assets against them.'
+  },
+  'BORROW': {
+    title: 'Borrow Debt 💸',
+    desc: 'Borrows assets against supplied collateral assets on platforms like Aave or Compound. Requires a healthy collateralization ratio to prevent liquidation risk. Dynamic piping allows borrowing amounts based on preceding block steps.'
+  },
+  'STAKE': {
+    title: 'Liquid Staking 🥩',
+    desc: 'Stakes native assets (like ETH) into liquid staking protocols (such as Lido or Rocket Pool) to earn proof-of-stake rewards while retaining liquidity in the form of yield-bearing liquid staking tokens (stETH, rETH).'
+  },
+  'YIELD': {
+    title: 'Yield Farming 🚜',
+    desc: 'Locks your tokens into yield aggregator vaults or liquidity pools (e.g. Curve, Balancer, Shadow Exchange) to earn additional token emissions, governance rewards, and transaction fee shares.'
+  },
+  'REPAY': {
+    title: 'Repay Debt 💰',
+    desc: 'Repays a borrowed debt position on protocols like Aave or Compound, reducing your debt and improving your health factor/collateral ratio to avoid liquidation risk.'
+  },
+  'RETURN FUNDS': {
+    title: 'Return Flashloan Funds ↩️',
+    desc: 'Returns borrowed flash loan capital + protocol fee back to Aave or Spark, successfully closing the execution corridor. Mandatory step for any strategy utilizing flash loans.'
+  },
+  'CLAIM': {
+    title: 'Claim Rewards 🎁',
+    desc: 'Claims accrued interest, farming yields, or reward tokens from active staking/lending positions and transfers them directly to your wallet.'
+  },
+  'CONDITION': {
+    title: 'Condition Rule ⚙️',
+    desc: 'Conditional gate that only allows the strategy to execute when specific market triggers (like oracle prices, yield rates, or asset ratios) are met. Saves transaction fees by preventing execution if conditions are unfavorable.'
+  },
+  'LOOP': {
+    title: 'Looping Multiplier 🔁',
+    desc: 'Executes a set of actions recursively (such as supply-borrow-supply loops) to build leveraged exposure up to a defined maximum number of iterations.'
+  },
+  'SETTLEMENT': {
+    title: 'Capital Settlement ⬇',
+    desc: 'Settles and distributes final net profit yields generated by all preceding operations to multiple addresses across Stellar or EVM networks. \n\n⚠️ CONDITIONS FOR USE:\n1. Must be placed as the absolute final step (sink node) in a strategy.\n2. No actions can follow it.\n3. Only one Settlement block is allowed per strategy.\n4. Used to route profits into distribution profiles like Treasury reserves, Payroll splits, Revenue Shares, or Creator Royalties.'
+  },
 };
 
 type BlockType = 'FLASH LOAN' | 'SWAP' | 'BRIDGE' | 'LEND' | 'BORROW' | 'STAKE' | 'YIELD' | 'REPAY' | 'RETURN FUNDS' | 'CLAIM' | 'CONDITION' | 'LOOP' | 'SETTLEMENT';
@@ -441,6 +480,7 @@ export default function CanvasPage() {
       onUpdate: updateBlock,
       onRemove: removeBlock,
       onExecuteBridge: executeBridgeBlock,
+      onTutorialClick: (type: BlockType) => setTutorialModal(type),
       previousBlocks: blocks.slice(0, i)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
