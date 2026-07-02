@@ -160,13 +160,13 @@ const FLASH_PROVIDERS_BY_CHAIN: Record<string, string[]> = {
   Sonic: ['Aave'],
 };
 const MODULE_SUPPORT_BY_CHAIN: Record<string, Array<CanvasBlock['type']>> = {
-  Ethereum: ['FLASH LOAN', 'SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP'],
-  Base: ['FLASH LOAN', 'SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP'],
-  Arbitrum: ['SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP'],
-  Optimism: ['SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP'],
-  Polygon: ['SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP'],
-  '0G': ['SWAP', 'BRIDGE', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP'],
-  Sonic: ['FLASH LOAN', 'SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP'],
+  Ethereum: ['FLASH LOAN', 'SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP', 'SETTLEMENT'],
+  Base: ['FLASH LOAN', 'SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP', 'SETTLEMENT'],
+  Arbitrum: ['SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP', 'SETTLEMENT'],
+  Optimism: ['SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP', 'SETTLEMENT'],
+  Polygon: ['SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP', 'SETTLEMENT'],
+  '0G': ['SWAP', 'BRIDGE', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP', 'SETTLEMENT'],
+  Sonic: ['FLASH LOAN', 'SWAP', 'BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'REPAY', 'RETURN FUNDS', 'CLAIM', 'CONDITION', 'LOOP', 'SETTLEMENT'],
 };
 
 const TOKEN_ADDRESSES_BY_CHAIN: Record<string, Record<string, string>> = {
@@ -243,7 +243,7 @@ type ProtocolCategory = {
 const PROTOCOL_CATEGORIES: ProtocolCategory[] = [
   {
     name: 'Stargate',
-    logo: 'https://cryptologos.cc/logos/stargate-finance-stg-logo.png',
+    logo: 'https://assets.coingecko.com/coins/images/24473/large/STG_parent.png',
     actions: [
       { label: 'Token Bridge', type: 'BRIDGE', defaultParams: { bridgeProvider: 'stargate' } }
     ]
@@ -1532,7 +1532,7 @@ export default function CanvasPage() {
       return swapCount < 3;
     }
 
-    if (['BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'CONDITION', 'LOOP',].includes(type)) {
+    if (['BRIDGE', 'LEND', 'BORROW', 'STAKE', 'YIELD', 'CONDITION', 'LOOP', 'SETTLEMENT'].includes(type)) {
       return count === 0;
     }
 
@@ -1900,7 +1900,7 @@ const compiled = (await api.compileStrategy(
 
     try {
       console.log('🔒 Checking/registering strategyHash on-chain:', strategyHash);
-      let provider = new ethers.BrowserProvider((window as any).ethereum, "any");
+      let provider = new ethers.BrowserProvider((window as any).ethereum);
       
       // Prevent BAD_DATA error by checking if we're on the right chain
       const network = await provider.getNetwork();
@@ -1957,7 +1957,7 @@ const compiled = (await api.compileStrategy(
         // Wait briefly for MetaMask to apply the network switch
         await new Promise(r => setTimeout(r, 1500));
         // Re-instantiate provider so ethers picks up the new network state immediately
-        provider = new ethers.BrowserProvider((window as any).ethereum, "any");
+        provider = new ethers.BrowserProvider((window as any).ethereum);
         
         const updatedNetwork = await provider.getNetwork();
         if (updatedNetwork.chainId !== BigInt(currentChainId)) {
@@ -2015,7 +2015,7 @@ const compiled = (await api.compileStrategy(
       });
       
       // Use ethers directly to bypass CORS issues with Wagmi simulation
-      const provider = new ethers.BrowserProvider((window as any).ethereum, "any");
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
       const bandle = new ethers.Contract(
         currentContracts.BandleRouter,
@@ -2466,7 +2466,19 @@ const compiled = (await api.compileStrategy(
                         <div className="absolute top-0 left-0 w-1 h-full bg-[#00D1C7]/50 group-hover:bg-[#00D1C7] transition-colors" />
                         <div className="flex items-center justify-between">
                           <span className="font-bold text-white/80 group-hover:text-white text-sm">{action.label}</span>
-                          <span className="material-symbols-outlined text-white/20 group-hover:text-[#00D1C7] transition-colors text-sm">add_circle</span>
+                          <div className="flex items-center gap-3">
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTutorialModal(action.type as BlockType);
+                              }}
+                              className="w-5 h-5 rounded-full bg-white/5 border border-white/10 hover:bg-[#00D1C7]/20 hover:text-[#00D1C7] text-white/40 text-[10px] font-bold flex items-center justify-center transition-all relative z-10 cursor-pointer"
+                              title="Click to learn details"
+                            >
+                              ?
+                            </span>
+                            <span className="material-symbols-outlined text-white/20 group-hover:text-[#00D1C7] transition-colors text-sm">add_circle</span>
+                          </div>
                         </div>
                         <div className="text-[10px] uppercase tracking-wider text-white/30 mt-2 font-mono">{action.type}</div>
                       </button>
