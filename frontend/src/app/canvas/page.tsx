@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { ethers } from 'ethers';
 import { useAccount, useContractWrite, useWaitForTransaction } from 'wagmi';
 import { motion, AnimatePresence } from 'framer-motion';
-import ReactFlow, { Background, Controls, NodeChange, BackgroundVariant } from 'reactflow';
+import ReactFlow, { Background, Controls, NodeChange, EdgeChange, Connection, BackgroundVariant, addEdge, applyEdgeChanges } from 'reactflow';
 import 'reactflow/dist/style.css';
 import ModuleNode from '../../components/canvas/ModuleNode';
 import { api } from '../../lib/api';
@@ -328,6 +328,101 @@ export default function CanvasPage() {
   const { toast } = useToast();
   const [selectedChain, setSelectedChain] = useState<string>('Base');
   const [blocks, setBlocks] = useState<CanvasBlock[]>([]);
+  const [edges, setEdges] = useState<any[]>([]);
+
+  const getOrderedBlocks = useCallback((currentBlocks: CanvasBlock[], currentEdges: any[]): CanvasBlock[] => {
+    if (currentBlocks.length <= 1) return currentBlocks;
+    const adj: Record<string, string> = {};
+    const hasIncoming = new Set<string>();
+    currentEdges.forEach(e => {
+      adj[e.source] = e.target;
+      hasIncoming.add(e.target);
+    });
+    let startNode = currentBlocks.find(b => b.type === 'FLASH LOAN');
+    if (!startNode) {
+      startNode = currentBlocks.find(b => !hasIncoming.has(b.id));
+    }
+    if (!startNode && currentBlocks.length > 0) {
+      startNode = currentBlocks[0];
+    }
+    if (!startNode) return currentBlocks;
+    const ordered: CanvasBlock[] = [];
+    const visited = new Set<string>();
+    let currentId: string | undefined = startNode.id;
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
+      const targetId = currentId;
+      const block = currentBlocks.find(b => b.id === targetId);
+      if (block) {
+        ordered.push(block);
+      }
+      currentId = adj[currentId];
+    }
+    currentBlocks.forEach(b => {
+      if (!visited.has(b.id)) {
+        ordered.push(b);
+      }
+    });
+    return ordered;
+  }, []);
+
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    setEdges((eds) => applyEdgeChanges(changes, eds));
+  }, []);
+
+  const onConnect = useCallback((connection: Connection) => {
+    setEdges((eds) => addEdge({ ...connection, animated: true, style: { stroke: '#00e5ff', strokeWidth: 2 } }, eds));
+  }, []);
+
+  const prevBlocksLengthRef = useRef(blocks.length);
+  useEffect(() => {
+    const prevLen = prevBlocksLengthRef.current;
+    prevBlocksLengthRef.current = blocks.length;
+
+    if (blocks.length === 0) {
+      setEdges([]);
+      return;
+    }
+
+    if (edges.length === 0 && blocks.length > 1) {
+      const initialEdges = [];
+      for (let i = 0; i < blocks.length - 1; i++) {
+        initialEdges.push({
+          id: `e-${blocks[i].id}-${blocks[i+1].id}`,
+          source: blocks[i].id,
+          target: blocks[i+1].id,
+          animated: true,
+          style: { stroke: '#00e5ff', strokeWidth: 2 }
+        });
+      }
+      setEdges(initialEdges);
+      return;
+    }
+
+    if (blocks.length < prevLen) {
+      const blockIds = new Set(blocks.map(b => b.id));
+      setEdges(eds => eds.filter(e => blockIds.has(e.source) && blockIds.has(e.target)));
+    }
+
+    if (blocks.length > prevLen && prevLen > 0) {
+      const newBlock = blocks[blocks.length - 1];
+      const prevLastBlock = blocks[blocks.length - 2];
+      const exists = edges.some(e => e.target === newBlock.id);
+      if (!exists) {
+        setEdges(eds => [
+          ...eds,
+          {
+            id: `e-${prevLastBlock.id}-${newBlock.id}`,
+            source: prevLastBlock.id,
+            target: newBlock.id,
+            animated: true,
+            style: { stroke: '#00e5ff', strokeWidth: 2 }
+          }
+        ]);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocks, edges.length]);
   const [tutorialModal, setTutorialModal] = useState<BlockType | null>(null);
   const [dragging, setDragging] = useState<BlockType | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -486,19 +581,7 @@ export default function CanvasPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   })), [blocks, selectedChain]);
 
-  const reactFlowEdges = useMemo(() => {
-    const edges = [];
-    for (let i = 0; i < blocks.length - 1; i++) {
-      edges.push({
-        id: `e-${blocks[i].id}-${blocks[i+1].id}`,
-        source: blocks[i].id,
-        target: blocks[i+1].id,
-        animated: true,
-        style: { stroke: '#00e5ff', strokeWidth: 2 }
-      });
-    }
-    return edges;
-  }, [blocks]);
+
 
   const nodeTypes = useMemo(() => ({ module: ModuleNode }), []);
 
@@ -1079,8 +1162,9 @@ export default function CanvasPage() {
     }
   };
 
-  const buildNodes = () => {
-    return blocks.map((b, i) => {
+  const buildNodes = (orderedBlocks?: CanvasBlock[]) => {
+    const listToBuild = orderedBlocks || getOrderedBlocks(blocks, edges);
+    return listToBuild.map((b, i) => {
       const typeNormalized = b.type.toLowerCase().replace(/\s+/g, '_');
       const typeUppercase = b.type.toUpperCase().replace(/\s+/g, '_');
       const params: Record<string, unknown> = { order: i, chain: b.chain || selectedChain };
@@ -1447,10 +1531,10 @@ export default function CanvasPage() {
     return Array.from(tokenSet).map(t => ethers.getAddress(t));
   };
 
-  const generateStrategyHash = () =>
+  const generateStrategyHash = (orderedBlocks?: CanvasBlock[]) =>
     ethers.keccak256(
       ethers.toUtf8Bytes(
-        JSON.stringify({ wallet: address, blocks })
+        JSON.stringify({ wallet: address, blocks: orderedBlocks || getOrderedBlocks(blocks, edges) })
       )
     );
 
@@ -1893,7 +1977,8 @@ const compiled = (await api.compileStrategy(
       return;
     }
 
-    let strategyHash = generateStrategyHash();
+    const ordered = getOrderedBlocks(blocks, edges);
+    let strategyHash = generateStrategyHash(ordered);
     if (!strategyHash.startsWith('0x')) {
       strategyHash = `0x${strategyHash}`;
     }
@@ -2101,8 +2186,8 @@ const compiled = (await api.compileStrategy(
                 className="rounded-lg border border-white/10 bg-[#0E121A] px-2 py-1.5 text-xs text-white outline-none"
               >
                 {NETWORK_OPTIONS.map((n) => (
-                  <option key={n} value={n} disabled={n !== 'Base' && n !== 'Sonic'}>
-                    {n !== 'Base' && n !== 'Sonic' ? `${n} (Coming Soon)` : n}
+                  <option key={n} value={n} disabled={n !== 'Base'}>
+                    {n !== 'Base' ? `${n} (Coming Soon)` : n}
                   </option>
                 ))}
               </select>
@@ -2125,8 +2210,10 @@ const compiled = (await api.compileStrategy(
             ) : (
               <ReactFlow 
                 nodes={reactFlowNodes} 
-                edges={reactFlowEdges} 
+                edges={edges} 
                 onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
                 nodeTypes={nodeTypes}
                 fitView
               >
