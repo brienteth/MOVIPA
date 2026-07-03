@@ -276,7 +276,7 @@ const ModuleNode = ({ id, data }: ModuleNodeProps) => {
              <span className="text-[10px] text-white/50 px-0.5">Bridge Protocol</span>
              <CustomSelect 
               value={b.bridgeProvider || 'stargate'} 
-              options={[{ value: 'stargate', label: 'Stargate V2 Bridge', icon: 'https://assets.coingecko.com/coins/images/24473/large/STG_parent.png' }]}
+              options={[{ value: 'stargate', label: 'Stargate V2 Bridge', icon: 'https://icons.llamao.fi/icons/protocols/stargate' }]}
               onChange={(val) => onUpdate(id, { bridgeProvider: val as any })}
             />
           </div>

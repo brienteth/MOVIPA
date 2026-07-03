@@ -243,7 +243,7 @@ type ProtocolCategory = {
 const PROTOCOL_CATEGORIES: ProtocolCategory[] = [
   {
     name: 'Stargate',
-    logo: 'https://assets.coingecko.com/coins/images/24473/large/STG_parent.png',
+    logo: 'https://icons.llamao.fi/icons/protocols/stargate',
     actions: [
       { label: 'Token Bridge', type: 'BRIDGE', defaultParams: { bridgeProvider: 'stargate' } }
     ]
@@ -1985,6 +1985,9 @@ const compiled = (await api.compileStrategy(
 
     try {
       console.log('🔒 Checking/registering strategyHash on-chain:', strategyHash);
+      if ((window as any).ethereum) {
+        await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
+      }
       let provider = new ethers.BrowserProvider((window as any).ethereum);
       
       // Prevent BAD_DATA error by checking if we're on the right chain
