@@ -1935,6 +1935,7 @@ const compiled = (await api.compileStrategy(
 
   const confirmExecute = async () => {
     console.log('🚀 confirmExecute called');
+    let overrides: any = {};
     
     // Priority: ref (always current) → state → sessionStorage
     let strategy: BackendCompiledStrategy | null =
@@ -2059,6 +2060,61 @@ const compiled = (await api.compileStrategy(
       }
       
       const signer = await provider.getSigner();
+      overrides = await getTransactionOverrides(provider);
+
+      // --- TOKEN APPROVALS ---
+      const approvalRequired: Array<{ tokenAddress: string; amount: bigint; symbol: string }> = [];
+      for (const block of ordered) {
+        if (block.amountMode === 'dynamic') continue;
+        
+        let tokenAddress = '';
+        let amountVal = 0;
+        let symbol = '';
+        
+        if (block.type === 'SWAP') {
+          tokenAddress = TOKEN_ADDRESSES[block.from || ''] || block.from || '';
+          amountVal = block.amount || 0;
+          symbol = block.from || '';
+        } else if (block.type === 'LEND' || block.type === 'BRIDGE' || block.type === 'STAKE') {
+          tokenAddress = TOKEN_ADDRESSES[block.asset || ''] || block.asset || '';
+          amountVal = block.amount || 0;
+          symbol = block.asset || '';
+        }
+        
+        if (tokenAddress && tokenAddress.startsWith('0x') && tokenAddress !== ethers.ZeroAddress && amountVal > 0) {
+          const amountBig = BigInt(scaleAmount(amountVal, tokenAddress));
+          approvalRequired.push({ tokenAddress, amount: amountBig, symbol });
+        }
+      }
+
+      for (const item of approvalRequired) {
+        const tokenContract = new ethers.Contract(
+          item.tokenAddress,
+          [
+            "function allowance(address owner, address spender) public view returns (uint256)",
+            "function approve(address spender, uint256 amount) public returns (bool)"
+          ],
+          signer
+        );
+        
+        const currentAllowance = await tokenContract.allowance(address, currentContracts.BandleRouter);
+        if (currentAllowance < item.amount) {
+          console.log(`🔑 Requesting approval for ${item.symbol} (${item.tokenAddress})...`);
+          toast({
+            title: `Approval Required`,
+            description: `Please approve BandleRouter to spend your ${item.symbol}.`,
+          });
+          const approveTx = await tokenContract.approve(currentContracts.BandleRouter, ethers.MaxUint256, overrides);
+          await approveTx.wait();
+          console.log(`✅ ${item.symbol} approved.`);
+          toast({
+            title: `Approval Succeeded`,
+            description: `${item.symbol} approved successfully.`,
+            variant: "success"
+          });
+        }
+      }
+
       const registry = new ethers.Contract(
         currentContracts.StrategyRegistry,
         strategyRegistryAbi,
@@ -2074,7 +2130,7 @@ const compiled = (await api.compileStrategy(
       if (alreadyRegistered) {
         console.log('✅ Strategy already registered, skipping TX1.');
       } else {
-        const registerTx = await registry.registerStrategy(strategyHash, `ipfs://brick3-canvas/${strategyHash}`);
+        const registerTx = await registry.registerStrategy(strategyHash, `ipfs://brick3-canvas/${strategyHash}`, overrides);
         await registerTx.wait();
         console.log('✅ Strategy registered.');
       }
@@ -2116,7 +2172,7 @@ const compiled = (await api.compileStrategy(
       );
       
       console.log('🚀 Sending executeStrategy transaction...');
-        const overrides = await getTransactionOverrides(provider);
+        // overrides already retrieved
         
         let estimatedGasLimit = BigInt(1000000);
         try {
