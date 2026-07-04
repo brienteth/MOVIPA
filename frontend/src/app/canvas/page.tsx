@@ -2126,9 +2126,9 @@ const compiled = (await api.compileStrategy(
           console.log('⛽ Estimated dynamic gasLimit:', estimatedGasLimit.toString());
         } catch (estErr) {
           console.warn('⛽ estimateGas failed, using fallback scaled limit:', estErr);
-          // Fallback: 350,000 gas per action, capped at 2,000,000 max fallback
-          const calculated = BigInt(350000) * BigInt(actions.length || 1);
-          estimatedGasLimit = calculated > BigInt(2000000) ? BigInt(2000000) : calculated;
+          // Fallback: 180,000 gas per action, capped at 800,000 max fallback
+          const calculated = BigInt(180000) * BigInt(actions.length || 1);
+          estimatedGasLimit = calculated > BigInt(800000) ? BigInt(800000) : calculated;
         }
 
         overrides.gasLimit = estimatedGasLimit;
