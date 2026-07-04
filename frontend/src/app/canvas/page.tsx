@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { ethers } from 'ethers';
 import { useAccount, useContractWrite, useWaitForTransaction } from 'wagmi';
 import { motion, AnimatePresence } from 'framer-motion';
-import ReactFlow, { Background, Controls, NodeChange, EdgeChange, Connection, BackgroundVariant, addEdge, applyEdgeChanges } from 'reactflow';
+import ReactFlow, { Background, Controls, NodeChange, EdgeChange, Connection, BackgroundVariant, addEdge, applyEdgeChanges, updateEdge, Edge } from 'reactflow';
 import 'reactflow/dist/style.css';
 import ModuleNode from '../../components/canvas/ModuleNode';
 import { api } from '../../lib/api';
@@ -80,7 +80,7 @@ interface CanvasBlock {
   id: string;
   type: BlockType;
   chain?: string;
-  bridgeProvider?: 'standard' | 'opacus';
+  bridgeProvider?: string;
   provider?: string;
   asset?: string;
   amount?: number;
@@ -372,6 +372,10 @@ export default function CanvasPage() {
 
   const onConnect = useCallback((connection: Connection) => {
     setEdges((eds) => addEdge({ ...connection, animated: true, style: { stroke: '#00e5ff', strokeWidth: 2 } }, eds));
+  }, []);
+
+  const onEdgeUpdate = useCallback((oldEdge: Edge, newConnection: Connection) => {
+    setEdges((els) => updateEdge(oldEdge, newConnection, els));
   }, []);
 
   const prevBlocksLengthRef = useRef(blocks.length);
@@ -1194,7 +1198,7 @@ export default function CanvasPage() {
           params.amount = scaleAmount(b.amount, params.asset as string);
         }
       } else if (typeNormalized === 'bridge') {
-        params.bridge = b.bridgeProvider === 'opacus' ? 'opacus' : 'across';
+        params.bridge = b.bridgeProvider || 'across';
         params.fromChain = b.from || '';
         params.toChain = b.to || '';
         params.asset = TOKEN_ADDRESSES[b.asset || ''] || b.asset || '';
@@ -1902,7 +1906,7 @@ const compiled = (await api.compileStrategy(
         return;
       }
 
-      const bridge = block.bridgeProvider === 'opacus' ? 'opacus' : 'across';
+      const bridge = block.bridgeProvider || 'across';
       const res = await api.bridgeTransfer({
         from_chain: fromChain,
         to_chain: toChain,
@@ -2217,6 +2221,7 @@ const compiled = (await api.compileStrategy(
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
+                onEdgeUpdate={onEdgeUpdate}
                 nodeTypes={nodeTypes}
                 fitView
               >
