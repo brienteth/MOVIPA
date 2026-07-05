@@ -2179,31 +2179,95 @@ const compiled = (await api.compileStrategy(
       // Use ethers directly to bypass CORS issues with Wagmi simulation
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
+      const signerAddress = await signer.getAddress();
       const bandle = new ethers.Contract(
         currentContracts.BandleRouter,
         bandleRouterAbi,
         signer
       );
       
-      console.log('🚀 Sending executeStrategy transaction...');
-        // overrides already retrieved
+      // --- PRE-FLIGHT SIMULATION ---
+      // Simulate the transaction with provider.call() BEFORE sending to MetaMask.
+      // This catches revert reasons (e.g. unprofitable flash loan) and shows a clear error
+      // instead of MetaMask's generic "This transaction is likely to fail" warning.
+      console.log('🔬 Running pre-flight simulation...');
+      const hasFlashLoan = actions.some((a: any) => a.actionType === 0);
+      
+      try {
+        const simulationTx = await bandle.executeStrategy.populateTransaction(
+          actions, minProfitWei, deadline, strategyHash, sweepTokens, overrides
+        );
+        simulationTx.from = signerAddress;
+        simulationTx.gasLimit = BigInt(5000000); // generous limit for simulation
+        await provider.call(simulationTx);
+        console.log('✅ Pre-flight simulation passed');
+      } catch (simErr: any) {
+        console.error('❌ Pre-flight simulation failed:', simErr);
+        const reason = simErr?.reason || simErr?.shortMessage || '';
         
-        let estimatedGasLimit = BigInt(1000000);
-        try {
-          const estimated = await bandle.executeStrategy.estimateGas(actions, minProfitWei, deadline, strategyHash, sweepTokens, overrides);
-          // Add 20% safety buffer
-          estimatedGasLimit = (estimated * BigInt(120)) / BigInt(100);
-          console.log('⛽ Estimated dynamic gasLimit:', estimatedGasLimit.toString());
-        } catch (estErr) {
-          console.warn('⛽ estimateGas failed, using fallback scaled limit:', estErr);
-          // Fallback: 180,000 gas per action, capped at 800,000 max fallback
-          const calculated = BigInt(180000) * BigInt(actions.length || 1);
-          estimatedGasLimit = calculated > BigInt(800000) ? BigInt(800000) : calculated;
+        // Decode specific revert reasons for better UX
+        if (reason.includes('not found')) {
+          setTxError('Strategy not registered on-chain. Please click Execute again to re-register.');
+          return;
         }
+        if (reason.includes('Rate limit')) {
+          setTxError('Rate limit: Please wait for the next block before retrying.');
+          return;
+        }
+        if (reason.includes('expired')) {
+          setTxError('Strategy deadline expired. Please click Execute again.');
+          return;
+        }
+        if (reason.includes('transfer amount exceeds balance') || reason.includes('ERC20')) {
+          if (hasFlashLoan) {
+            setTxError(
+              '⚠️ Flash Loan Unprofitable: Swap fees exceed any arbitrage gain. ' +
+              'The flash loan repayment would fail because the swaps lose value to trading fees (~0.3% per swap). ' +
+              'Try using different DEXes/pools for each swap leg, or wait for a price discrepancy.'
+            );
+          } else {
+            setTxError('Insufficient token balance for this strategy. Check your wallet balance.');
+          }
+          return;
+        }
+        if (reason.includes('router not allowed') || reason.includes('tokenIn not allowed') || reason.includes('tokenOut not allowed')) {
+          setTxError(`Permission error: ${reason}. The swap adapter or token is not whitelisted.`);
+          return;
+        }
+        
+        // Generic execution revert
+        if (hasFlashLoan) {
+          setTxError(
+            '⚠️ Flash Loan Strategy Simulation Failed: This arbitrage is currently unprofitable. ' +
+            'Swap fees and flash loan premium exceed potential gains. ' +
+            `Technical: ${reason || 'execution reverted'}`
+          );
+        } else {
+          setTxError(`Pre-flight simulation failed: ${reason || 'execution reverted'}. The transaction would revert on-chain.`);
+        }
+        return;
+      }
 
-        overrides.gasLimit = estimatedGasLimit;
-        const tx = await bandle.executeStrategy(actions, minProfitWei, deadline, strategyHash, sweepTokens, overrides);
-        const receipt = await tx.wait();
+      // --- SEND TRANSACTION ---
+      console.log('🚀 Sending executeStrategy transaction...');
+      
+      let estimatedGasLimit = BigInt(1000000);
+      try {
+        const estimated = await bandle.executeStrategy.estimateGas(actions, minProfitWei, deadline, strategyHash, sweepTokens, overrides);
+        // Add 20% safety buffer
+        estimatedGasLimit = (estimated * BigInt(120)) / BigInt(100);
+        console.log('⛽ Estimated dynamic gasLimit:', estimatedGasLimit.toString());
+      } catch (estErr) {
+        console.warn('⛽ estimateGas failed, using fallback scaled limit:', estErr);
+        // Fallback: 250,000 gas per action for flash loan strategies, 180,000 otherwise
+        const perAction = hasFlashLoan ? BigInt(250000) : BigInt(180000);
+        const calculated = perAction * BigInt(actions.length || 1);
+        estimatedGasLimit = calculated > BigInt(1200000) ? BigInt(1200000) : calculated;
+      }
+
+      overrides.gasLimit = estimatedGasLimit;
+      const tx = await bandle.executeStrategy(actions, minProfitWei, deadline, strategyHash, sweepTokens, overrides);
+      const receipt = await tx.wait();
       console.log('✅ Transaction confirmed:', receipt);
       setTxError(null);
       sessionStorage.removeItem('brick3_compiled_strategy');
@@ -2211,10 +2275,12 @@ const compiled = (await api.compileStrategy(
     } catch (err: any) {
       console.error('🧨 executeStrategy failed:', err);
       const errString = err.reason || err.message || String(err);
-      if (errString.includes("execution reverted") || errString.includes("CALL_EXCEPTION")) {
-         setTxError("Execution Reverted: The on-chain execution failed.");
+      if (errString.includes('user rejected') || errString.includes('ACTION_REJECTED')) {
+        setTxError('Transaction rejected by user.');
+      } else if (errString.includes("execution reverted") || errString.includes("CALL_EXCEPTION")) {
+        setTxError("Execution Reverted: The on-chain execution failed. Check console for details.");
       } else {
-         setTxError(`Execute failed: ${errString.slice(0, 200)}...`);
+        setTxError(`Execute failed: ${errString.slice(0, 300)}`);
       }
     }
   };
