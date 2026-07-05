@@ -304,23 +304,7 @@ const PROTOCOL_CATEGORIES: ProtocolCategory[] = [
 ];
 
 const getTransactionOverrides = async (provider: ethers.BrowserProvider) => {
-  try {
-    const feeData = await provider.getFeeData();
-    const overrides: any = {};
-    if (feeData.maxFeePerGas) {
-      overrides.maxFeePerGas = feeData.maxFeePerGas;
-    }
-    if (feeData.maxPriorityFeePerGas) {
-      overrides.maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
-    }
-    if (!overrides.maxFeePerGas && feeData.gasPrice) {
-      overrides.gasPrice = feeData.gasPrice;
-    }
-    return overrides;
-  } catch (e) {
-    console.error("Failed to fetch fee data:", e);
-    return {};
-  }
+  return {};
 };
 
 export default function CanvasPage() {
