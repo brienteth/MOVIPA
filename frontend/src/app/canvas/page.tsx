@@ -527,6 +527,30 @@ export default function CanvasPage() {
         continue;
       }
     }
+    // 4. Flash Loan Loop Repayment Asset Match Check
+    if (hasFlashLoan) {
+      const flashLoanBlock = blocksList.find(b => b.type === 'FLASH LOAN');
+      if (flashLoanBlock && flashLoanBlock.asset) {
+        const borrowedAsset = normalizeToken(flashLoanBlock.asset);
+        const nonRepayBlocks = blocksList.filter(b => b.type !== 'REPAY' && b.type !== 'RETURN FUNDS' && b.type !== 'SETTLEMENT');
+        const lastActionBlock = nonRepayBlocks[nonRepayBlocks.length - 1];
+        
+        let finalAsset = '';
+        if (lastActionBlock) {
+          if (lastActionBlock.type === 'SWAP') {
+            finalAsset = normalizeToken(lastActionBlock.to);
+          } else if (lastActionBlock.type === 'BORROW' || lastActionBlock.type === 'LEND' || lastActionBlock.type === 'BRIDGE' || lastActionBlock.type === 'STAKE') {
+            finalAsset = normalizeToken(lastActionBlock.asset);
+          }
+        }
+        
+        if (finalAsset && finalAsset !== borrowedAsset) {
+          const borrowedSymbol = flashLoanBlock.asset.toUpperCase();
+          const finalSymbol = lastActionBlock.type === 'SWAP' ? (lastActionBlock.to || '').toUpperCase() : (lastActionBlock.asset || '').toUpperCase();
+          return `Critical Error: Flash loan asset mismatch! You borrowed ${borrowedSymbol} but the last step produces ${finalSymbol}. You must swap back to ${borrowedSymbol} before the REPAY step to return the loan!`;
+        }
+      }
+    }
 
     return null;
   }, [TOKEN_ADDRESSES]);
