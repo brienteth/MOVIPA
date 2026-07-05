@@ -886,6 +886,9 @@ export default function CanvasPage() {
       const tx1 = await kernelContract.approveToken(usdcAddress, address, amountUnits, overrides);
       await tx1.wait();
 
+      // Wait 2.5s for RPC/MetaMask state to sync the new allowance
+      await new Promise(r => setTimeout(r, 2500));
+
       toast({
         title: "Allowance Granted",
         description: "Step 2: Transferring USDC to your wallet...",
@@ -980,6 +983,9 @@ export default function CanvasPage() {
       const overrides = await getTransactionOverrides(provider);
       const tx1 = await kernelContract.approveToken(usdcAddress, address, amountUnits, overrides);
       await tx1.wait();
+
+      // Wait 2.5s for RPC/MetaMask state to sync the new allowance
+      await new Promise(r => setTimeout(r, 2500));
 
       toast({
         title: "Allowance Granted",
