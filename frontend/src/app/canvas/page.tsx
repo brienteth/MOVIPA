@@ -1514,6 +1514,68 @@ export default function CanvasPage() {
         };
       }
 
+      if (type === 'SETTLEMENT') {
+        const protocol = currentContracts.CCTPSettlementAdapter || '0x0000000000000000000000000000000000000000';
+        const asset = TOKEN_ADDRESSES[params.asset?.toString() || 'USDC'] || params.asset?.toString() || '0x0000000000000000000000000000000000000000';
+        
+        let domain = 4; // Default: Stellar
+        const network = (params.network || '').toString().toLowerCase();
+        if (network === 'ethereum' || network === 'eth') {
+          domain = 0;
+        } else if (network === 'arbitrum' || network === 'arb') {
+          domain = 3;
+        } else if (network === 'base') {
+          domain = 6;
+        } else if (network === 'optimism' || network === 'op') {
+          domain = 2;
+        } else if (network === 'polygon' || network === 'matic') {
+          domain = 7;
+        } else if (network === 'stellar' || network === 'xlm') {
+          domain = 4;
+        }
+
+        let recipientStr = '';
+        const dist = (params.distribution || {}) as any;
+        const rawRecipients = dist.recipients || [];
+        if (Array.isArray(rawRecipients) && rawRecipients.length > 0) {
+          recipientStr = rawRecipients[0].address || '';
+        } else {
+          recipientStr = params.recipient?.toString() || address || '0x0000000000000000000000000000000000000000';
+        }
+
+        let recipientBytes32 = ethers.zeroPadValue('0x0000000000000000000000000000000000000000', 32);
+        if (recipientStr.startsWith('0x')) {
+          recipientBytes32 = ethers.zeroPadValue(recipientStr, 32);
+        } else if (recipientStr.startsWith('G') && recipientStr.length === 56) {
+          const strBytes = ethers.toUtf8Bytes(recipientStr);
+          const slicedBytes = strBytes.slice(0, 32);
+          recipientBytes32 = ethers.hexlify(slicedBytes);
+        }
+
+        const amount = BigInt(0); // 0 = settle entire USDC bakiye from kernel
+
+        const extraData = new ethers.AbiCoder().encode(
+          ['uint32', 'bytes32'],
+          [domain, recipientBytes32]
+        );
+
+        console.log('📌 Compiling SETTLEMENT to CCTPLendAction:', {
+          protocol,
+          asset,
+          domain,
+          recipientStr,
+          recipientBytes32
+        });
+
+        return {
+          actionType: 2, // LEND
+          params: new ethers.AbiCoder().encode(
+            ['address', 'uint8', 'address', 'uint256', 'bytes'],
+            [protocol, 0, asset, amount, extraData]
+          ) as `0x${string}`,
+        };
+      }
+
       // Fallback for unknown types
       console.warn(`⚠️ Unknown action type: ${type}`);
       return {
